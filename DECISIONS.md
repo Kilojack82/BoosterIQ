@@ -154,11 +154,7 @@ If none match, prompt the user to map or create — same flow described in the b
 - `theme_primary` / `theme_accent` / `theme_dark` — already the Vikings palette, stored for V2 multi-tenant
 - `signupgenius_url_pattern`, `square_location_id`, `google_drive_folder` — set during onboarding
 
-**`Apparel & Merch` — open V1 question:**
-The README explicitly says merch is "tracked separately (different operational model)." Two paths:
-- **Skip in V1** — concessions only. Simpler. Merch stays in the master sheet untouched.
-- **Include in V1** — add an `is_merch` (or `inventory_type`) field on `catalog_items` and let the dashboard filter. ~half a day of work, gives the chair full visibility.
-
-Recommend **skip in V1** — V1 is the concessions wedge per the brief; merch is its own initiative. The master-sheet parser should *read* the Apparel tab so we don't lose data, but skip storing it. Confirm with user before locking this in.
+**`Apparel & Merch` — resolved 2026-04-30: include in V1.**
+Concessions and merch live in the same `catalog_items` table, distinguished by an `is_merch BOOLEAN` flag (default `FALSE`). The dashboard filters; the parser populates both from the master sheet's Catalog and Apparel & Merch tabs respectively. Reversal of the original "skip" recommendation — the chair gets one place to see all inventory, and the schema cost is one boolean column plus an index.
 
 **Master sheet uses dollars; we store cents:** the parser converts on read. No special handling needed in the schema.
