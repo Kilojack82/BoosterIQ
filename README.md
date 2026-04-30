@@ -4,6 +4,7 @@ BoosterIQ is an intelligence platform for youth-sports booster clubs. It aggrega
 
 ## Documentation
 
+- [STATUS.md](./STATUS.md) — current build status, active blockers, and how to resume
 - [BUILD_BRIEF.md](./BUILD_BRIEF.md) — the full V1 product brief and architectural reference
 - [DECISIONS.md](./DECISIONS.md) — running log of architectural decisions and their rationale
 - [DESIGN.md](./DESIGN.md) — color tokens, typography, layout primitives, and the dashboard mockup spec
