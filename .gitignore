@@ -1,0 +1,79 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+coverage/
+.nyc_output/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment variables
+.env
+.env*.local
+.env.development
+.env.production
+.env.test
+
+# Vercel
+.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+logs/
+
+# Editor and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Supabase
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# Uploaded user files (local development)
+/uploads/
+/tmp/
+
+# Sample data fixtures (sensitive — real receipts and CSVs)
+/fixtures/private/
+*.receipt.jpg
+*.receipt.pdf
+square_export_*.csv
+
+# Generated reports (local development)
+/reports/
+
+# Secrets and credentials
+*.pem
+*.key
+service-account*.json
+google-credentials*.json
+twilio-credentials*.json
+
+# Turbo / build cache
+.turbo/
+
+# Local notes (Justin's working files)
+NOTES.md
+TODO.md
+SCRATCH.md
