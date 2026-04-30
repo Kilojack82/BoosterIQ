@@ -178,3 +178,23 @@ Concessions and merch live in the same `catalog_items` table, distinguished by a
 - The script is idempotent (upsert by `code` for catalog_items; full rebuild for menu_items per run). Safe to re-run after master sheet edits.
 
 **Tradeoff accepted:** the chair can't update the master sheet through the app in V1 — she edits the xlsx in Drive, you re-run the script. For V1's velocity goals this is fine; the brief's onboarding wizard (build sequence step 9) handles the user-facing flow once we get there.
+
+### D14. Receipt photo storage — defer Drive for V1 step 4
+**Decision:** For build sequence step 4 (receipt photo upload + Claude API parsing), parse the photo in-memory and store only the structured parse result in `receipts.parsed_data_json`. Skip persisting the photo file itself for now. `receipts.photo_url` becomes nullable via migration `20260430205639_make_receipts_photo_url_nullable.sql`.
+
+**Why this differs from D3:**
+D3 chose Google Drive as the file-storage layer for receipts and Square CSVs. That's still the right destination — but Drive integration requires Google Cloud Console OAuth setup + redirect-URI wiring + token-refresh plumbing, which is its own ~30-min vertical slice. Doing it inline with step 4 would block Claude-API receipt parsing on Drive setup.
+
+**What ships in V1 step 4:**
+- Receipt photo uploaded → parsed by Claude vision (forced tool use)
+- Parsed line items matched against `catalog_items` by exact normalized name
+- User confirms which matches to apply
+- `receipts` row inserted with `photo_url=null`, `parsed_data_json` containing the full parse + match result
+- `stock_movements` rows inserted for confirmed line items, `current_stock` updated
+
+**What lands later:**
+- Drive upload of the photo (call it step 4.5 — paired with the Drive OAuth setup we'll need anyway for Master Sheet read/write in onboarding)
+- Cost-basis update + the >5% cost-change confirmation flow (step 4.5)
+- Fuzzy catalog matching for non-exact names (step 4.5)
+
+**Tradeoff accepted:** receipts created in V1 step 4 have no recoverable photo — only the parse result. If the chair wants to verify a parse, she has to re-photograph. Acceptable for the pilot since she's the one running every parse and can spot-check live.
