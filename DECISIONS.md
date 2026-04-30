@@ -97,11 +97,68 @@ The brief specified `claude-sonnet-4-20250514`, which doesn't match current Anth
 - All Twilio env vars from SETUP.md.
 
 ### D9. Package manager: pnpm
-**Decision:** Use pnpm for installs, scripts, and the lockfile. Not npm, not yarn.
+**Decision:** Use pnpm for installs, scripts, and the lockfile. Not npm, not yarn. Pinned via `"packageManager": "pnpm@10.33.2"` in `package.json` so Corepack auto-locks the version per-repo.
 
 **Rationale:**
 - Smaller `node_modules` footprint via content-addressable store. Matters at $30/month infra ceiling.
 - Vercel detects pnpm-lock.yaml automatically; no extra config.
 - Stricter dependency hoisting catches accidental transitive imports — useful when this repo grows.
 
-**Tradeoffs accepted:** Anyone joining the project needs pnpm installed (`npm i -g pnpm`). Documented in SETUP.md step 1.
+**Tradeoffs accepted:** Anyone joining the project needs pnpm available (`corepack enable pnpm` is sufficient — no global install required). Documented in SETUP.md step 1.
+
+### D10. Stack versions: Next 15.5 + React 19.1 + Tailwind 4 + Turbopack
+**Decision:** Accept the modern default stack as scaffolded by `pnpm create next-app@15`. Specifically:
+- `next 15.5.15`
+- `react 19.1.0` / `react-dom 19.1.0`
+- `tailwindcss 4.2.4` (with `@tailwindcss/postcss`)
+- `typescript ^5`
+- `eslint 9`
+- Turbopack as the default for both `next dev` and `next build`
+
+**Why this differs from the brief:**
+The brief specified "Next.js 14 (App Router)" and implied Tailwind 3 / React 18. Those were current at the time the brief was written. As of 2026-04-30, `create-next-app@15` ships React 19 and Tailwind 4 by default, and there is no supported flag combination that will scaffold React 18 + Tailwind 3 alongside Next 15 — you'd have to manually downgrade after the fact, fight the lockfile, and re-do tooling for every dep that has React-19-only types.
+
+**What this changes downstream:**
+- **Tailwind config style:** Tailwind 4 is CSS-first. Brand tokens go in `src/app/globals.css` under `@theme {}`, not in `tailwind.config.ts`. There is no `tailwind.config.ts` in V1 unless we add one for plugins.
+- **Async cookies/headers in Next 15:** server-side `cookies()` and `headers()` are now async. Code touching these (auth flows, OAuth callbacks) must `await` them. Affects nothing in V1 yet because we're not wiring auth.
+- **Turbopack default:** previously SETUP.md said "answer No to Turbopack." Reversed — Turbopack is stable in 15.5 for dev *and* build. We accept it.
+
+**Tradeoffs accepted:**
+- React 19 is recent enough that some integrations (notably some React libraries with peer-dep ranges) still warn. We address those case-by-case as they come up; nothing critical for V1.
+- Tailwind 4 docs are newer and less SEO-saturated than v3 — if we need to look something up, the v4 docs at tailwindcss.com are the authoritative source.
+
+**Smoke test on commit:** `pnpm typecheck` and `pnpm build` both pass clean on the empty scaffold.
+
+### D11. Master Inventory Sheet — schema additions and observations
+**Context:** User provided `BoosterIQ_Master_LagoVistaVikings_v1_2026-04-30.xlsx` on 2026-04-30. The structure has implications for the database schema we'll build in step 2 of the build sequence. Capturing observations now so they aren't lost between now and then.
+
+**Sheets:** README · Catalog (133 rows) · Menu (409 rows) · Apparel & Merch (236 rows) · Recipes (V2) · Settings.
+
+**Schema additions to `catalog_items` (not in original brief):**
+- `code` — stable human-readable handle, format `CAT-XXXX` (zero-padded 4 digits). Useful for the chair to reference items in conversation. Database PK stays UUID.
+- `square_token` — Square's stable item UID. **This is the primary match key**, not name. Survives Square renames.
+- `reference_handle` — Square's slug-format handle (e.g. `#airhead-bars-2for-1-regular`). Secondary identifier.
+- `category` — already implied; the master sheet uses simple strings ("Candy", "Drinks", "Accessories > Bags/Totes") with `>` for hierarchy. We can store as a single string in V1 and split on `>` for display.
+
+**Match priority for Square CSV ingestion** (per the README sheet, codify this in the parser):
+1. Square Token (most reliable — survives renames)
+2. SKU (when present — ~44% of items have one)
+3. Item Name + Variation (fragile — only used as last resort)
+
+If none match, prompt the user to map or create — same flow described in the brief.
+
+**Settings sheet drives club-level config** — these belong in a single-row `club_settings` table:
+- `critical_par_buffer` — default `0.5` (games of runway → Critical)
+- `low_par_buffer` — default `1.5` (games of runway → Low)
+- `cost_change_threshold_pct` — default `5.0` (above this, flag for confirmation)
+- `theme_primary` / `theme_accent` / `theme_dark` — already the Vikings palette, stored for V2 multi-tenant
+- `signupgenius_url_pattern`, `square_location_id`, `google_drive_folder` — set during onboarding
+
+**`Apparel & Merch` — open V1 question:**
+The README explicitly says merch is "tracked separately (different operational model)." Two paths:
+- **Skip in V1** — concessions only. Simpler. Merch stays in the master sheet untouched.
+- **Include in V1** — add an `is_merch` (or `inventory_type`) field on `catalog_items` and let the dashboard filter. ~half a day of work, gives the chair full visibility.
+
+Recommend **skip in V1** — V1 is the concessions wedge per the brief; merch is its own initiative. The master-sheet parser should *read* the Apparel tab so we don't lose data, but skip storing it. Confirm with user before locking this in.
+
+**Master sheet uses dollars; we store cents:** the parser converts on read. No special handling needed in the schema.

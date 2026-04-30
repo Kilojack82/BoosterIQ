@@ -27,20 +27,17 @@ Each row produces one or more env vars. Collect them all into a working scratch 
 | **Square** | Sandbox app at developer.squareup.com → OAuth credentials → set redirect URL | `SQUARE_APPLICATION_ID`, `SQUARE_APPLICATION_SECRET`, `SQUARE_ENVIRONMENT=sandbox` |
 | **Vercel** | Sign in via `vercel login`. Don't link the project yet — we link in step 5. | (none yet) |
 
-## 3. Project scaffold (build sequence step 1 begins here)
+## 3. Project scaffold (build sequence step 1 — completed 2026-04-30)
 
-- [ ] From this directory: `pnpm create next-app@latest . --typescript --tailwind --app --eslint --src-dir --import-alias "@/*"`
-  - Answer **No** to "Use Turbopack" (stick with webpack for V1 — fewer surprises).
-- [ ] Install runtime deps:
-  ```
-  pnpm add @supabase/supabase-js @anthropic-ai/sdk googleapis square cheerio zod
-  ```
-- [ ] Install dev deps:
-  ```
-  pnpm add -D prettier eslint-config-prettier vitest @vitest/ui
-  ```
-- [ ] Enable TypeScript strict mode in `tsconfig.json` (`"strict": true`, `"noUncheckedIndexedAccess": true`)
-- [ ] Add Prettier config (`.prettierrc`) and wire `pnpm format` / `pnpm format:check` scripts
+This step is done. For reference / repro:
+
+- Scaffolded via `pnpm create next-app@15` (one major newer than the brief — see [DECISIONS.md D10](./DECISIONS.md#d10-stack-versions-next-155--react-191--tailwind-4--turbopack))
+- Stack landed: Next 15.5.15, React 19.1, Tailwind 4, TypeScript 5, ESLint 9, Turbopack default
+- Runtime deps: `@supabase/supabase-js`, `@anthropic-ai/sdk`, `googleapis`, `square`, `cheerio`, `zod`
+- Dev deps: `prettier`, `prettier-plugin-tailwindcss`, `eslint-config-prettier`, `vitest`, `@vitest/ui`, `@vitest/coverage-v8`
+- TypeScript: `strict: true` + `noUncheckedIndexedAccess: true` enabled in `tsconfig.json`
+- Scripts wired: `pnpm format`, `pnpm format:check`, `pnpm test`, `pnpm test:ui`, `pnpm typecheck`
+- Smoke test: `pnpm typecheck` and `pnpm build` both pass clean
 
 ## 4. Environment files
 

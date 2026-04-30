@@ -17,7 +17,7 @@ The pilot club is the Lago Vista Vikings Booster (Texas). V1 is single-tenant fo
 
 ## Stack and deployment
 
-- Next.js 14 (App Router) on Vercel or Netlify
+- Next.js 15 (App Router) on Vercel — see DECISIONS.md D10 for why we updated from the originally-spec'd 14
 - Supabase for Postgres database (auth deferred — V1 ships public; revisit before pilot launch)
 - Google Drive for file storage (receipt photos, Square CSVs, Master Sheet) — single source of truth, leverages existing booster Drive folder
 - Anthropic API (claude-sonnet-4-6) for all parsing and matching logic; non-streaming with structured outputs via tool use, prompt caching on system prompt + catalog context
