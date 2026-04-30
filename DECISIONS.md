@@ -158,3 +158,23 @@ If none match, prompt the user to map or create — same flow described in the b
 Concessions and merch live in the same `catalog_items` table, distinguished by an `is_merch BOOLEAN` flag (default `FALSE`). The dashboard filters; the parser populates both from the master sheet's Catalog and Apparel & Merch tabs respectively. Reversal of the original "skip" recommendation — the chair gets one place to see all inventory, and the schema cost is one boolean column plus an index.
 
 **Master sheet uses dollars; we store cents:** the parser converts on read. No special handling needed in the schema.
+
+### D12. Master sheet parsing — direct, not via Claude API
+**Decision:** Parse the master sheet xlsx with the `xlsx` (SheetJS) library directly. Skip Claude API for this input.
+
+**Rationale:**
+- The master sheet has a fully known structure (Catalog tab columns, Menu tab columns, Settings tab key-value rows). We mapped every column to a database field already (D11). There is nothing for Claude to interpret.
+- Direct parse is deterministic, free, and runs in ~50ms. Claude API would be ~5-10s and ~$0.05-0.20 per parse, with non-zero hallucination risk on field values.
+- Save Claude API for **receipts** (varied vendor formats, OCR-style image input) and **Square CSVs** (column variations across Square versions, ambiguous item-name matching). Those are the right places for it.
+
+**Tradeoff accepted:** if a future club ships a master sheet with different column names, the direct parser will error rather than adapt. Acceptable for V1 single-tenant; in V2 we'd add a Claude-API fallback path or a config-driven column mapping.
+
+### D13. Seed mechanism — one-shot script, not upload UI
+**Decision:** For V1, seed the master sheet via a one-shot script (`pnpm seed:master-sheet`). Skip the upload UI.
+
+**Rationale:**
+- V1 is single-tenant. The master sheet gets seeded once for the Vikings, and re-run only on schema changes.
+- An upload UI is ~half a day of work, used once. Building it for V2 (when multi-tenancy lands) is the right time.
+- The script is idempotent (upsert by `code` for catalog_items; full rebuild for menu_items per run). Safe to re-run after master sheet edits.
+
+**Tradeoff accepted:** the chair can't update the master sheet through the app in V1 — she edits the xlsx in Drive, you re-run the script. For V1's velocity goals this is fine; the brief's onboarding wizard (build sequence step 9) handles the user-facing flow once we get there.
