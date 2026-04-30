@@ -100,8 +100,14 @@ async function main() {
 
   // --- Catalog tab → catalog_items (concessions, is_merch=false) ----------
   const catalogRaw = XLSX.utils.sheet_to_json<CatalogRow>(requireSheet('Catalog'));
+  // Reject summary/footer rows like "Catalog total: 130" — codes must
+  // match the CAT-NNNN format the master sheet uses for real items.
+  const CATALOG_CODE = /^CAT-\d{4}$/;
   const catalogItems = catalogRaw
-    .filter((r) => trim(r['Item ID']) && trim(r['Item Name']))
+    .filter((r) => {
+      const code = trim(r['Item ID']);
+      return code && CATALOG_CODE.test(code) && trim(r['Item Name']);
+    })
     .map((r) => ({
       club_id: clubId,
       code: trim(r['Item ID'])!,
