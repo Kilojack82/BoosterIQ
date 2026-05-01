@@ -20,6 +20,19 @@ type MatchedRow = {
   match_strategy: 'sku' | 'name+variation' | 'none';
 };
 
+type SalesSummary = {
+  gross_sales_cents: number | null;
+  net_sales_cents: number | null;
+  total_cents: number | null;
+  cash_cents: number | null;
+  card_cents: number | null;
+  cashapp_cents: number | null;
+  other_cents: number | null;
+  giftcard_cents: number | null;
+  fees_cents: number | null;
+  net_total_cents: number | null;
+};
+
 type ParseResponse = {
   total_qty: number;
   total_net_sales_cents: number;
@@ -27,6 +40,8 @@ type ParseResponse = {
   date_range: { start: string | null; end: string | null };
   raw_row_count: number;
   rows: MatchedRow[];
+  summary: SalesSummary | null;
+  parse_source: 'csv' | 'pdf';
 };
 
 type Stage = 'idle' | 'review' | 'done';
@@ -80,6 +95,8 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
         total_gross_sales_cents: parsed.total_gross_sales_cents,
         date_range: parsed.date_range,
         rows: parsed.rows.map((r, i) => ({ ...r, apply: !!applyMap[i] })),
+        summary: parsed.summary,
+        parse_source: parsed.parse_source,
       };
       const res = await fetch('/api/square-imports/save', {
         method: 'POST',
@@ -100,19 +117,41 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
   if (stage === 'idle') {
     return (
       <Card>
-        <CardHeader title="Upload Square Item Sales CSV" />
+        <CardHeader title="Upload Square reports" />
         <CardBody>
           <form onSubmit={handleUpload} className="space-y-4">
             <div>
-              <label className="block text-xs text-ink-muted mb-1">CSV file</label>
+              <label className="block text-xs text-ink-muted mb-1">
+                Items report (CSV or PDF) <span className="text-critical">*</span>
+              </label>
               <input
                 type="file"
-                name="csv"
-                accept=".csv,text/csv"
+                name="items"
+                accept=".csv,text/csv,.pdf,application/pdf"
                 required
                 disabled={busy}
                 className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-md file:border-0 file:bg-royal file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-royal/90"
               />
+              <p className="text-xs text-ink-muted mt-1">
+                Per-item sales detail. Either Square&apos;s CSV export or the PDF version
+                from email/mobile.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-ink-muted mb-1">
+                Sales summary PDF (optional)
+              </label>
+              <input
+                type="file"
+                name="summary"
+                accept=".pdf,application/pdf"
+                disabled={busy}
+                className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-md file:border-0 file:bg-royal/40 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-royal/60"
+              />
+              <p className="text-xs text-ink-muted mt-1">
+                Adds Cash/Card/Cash App breakdown + fees. Cross-checked against the items
+                total.
+              </p>
             </div>
             <div>
               <label className="block text-xs text-ink-muted mb-1">
@@ -138,20 +177,16 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
                   <Link href="/events/new" className="text-royal hover:underline">
                     add one
                   </Link>{' '}
-                  if you want this CSV linked to a specific game.
+                  if you want this report linked to a specific game.
                 </p>
               ) : null}
             </div>
-            <p className="text-xs text-ink-muted">
-              Square Dashboard → Reports → Item Sales → Export CSV. We use Date, Item, Qty,
-              Price Point Name, SKU, Net Sales, Gross Sales.
-            </p>
             <button
               type="submit"
               disabled={busy}
               className="bg-royal hover:bg-royal/90 text-white font-semibold rounded-lg px-4 py-2 disabled:opacity-50"
             >
-              {busy ? 'Parsing CSV…' : 'Parse'}
+              {busy ? 'Parsing…' : 'Parse reports'}
             </button>
             {error ? <p className="text-sm text-critical">{error}</p> : null}
           </form>
@@ -171,11 +206,18 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
           : `${parsed.date_range.start} → ${parsed.date_range.end}`
         : 'Date range not detected';
 
+    const summary = parsed.summary;
+    const reconcilesGap =
+      summary?.net_sales_cents != null
+        ? parsed.total_net_sales_cents - summary.net_sales_cents
+        : null;
+    const reconcilesOk = reconcilesGap == null || Math.abs(reconcilesGap) <= 50;
+
     return (
       <div className="space-y-4">
         <Card accentLeft="gold">
           <CardHeader
-            eyebrow="Square sales"
+            eyebrow={`Square sales · parsed from ${parsed.parse_source.toUpperCase()}`}
             title={range}
             meta={
               <div className="text-right">
@@ -207,6 +249,49 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
             </div>
           </CardBody>
         </Card>
+
+        {summary ? (
+          <Card accentLeft={reconcilesOk ? 'filled' : 'critical'}>
+            <CardHeader
+              title="Sales summary"
+              meta={
+                <div className="text-right">
+                  <div className="text-sm">{formatCents(summary.net_total_cents)}</div>
+                  <div className="text-[11px] text-ink-muted">net after fees</div>
+                </div>
+              }
+            />
+            <CardBody>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                {summary.gross_sales_cents != null ? (
+                  <SummaryRow label="Gross sales" value={summary.gross_sales_cents} />
+                ) : null}
+                {summary.net_sales_cents != null ? (
+                  <SummaryRow label="Net sales" value={summary.net_sales_cents} />
+                ) : null}
+                {summary.cash_cents != null ? (
+                  <SummaryRow label="Cash" value={summary.cash_cents} />
+                ) : null}
+                {summary.card_cents != null ? (
+                  <SummaryRow label="Card" value={summary.card_cents} />
+                ) : null}
+                {summary.cashapp_cents != null ? (
+                  <SummaryRow label="Cash App" value={summary.cashapp_cents} />
+                ) : null}
+                {summary.fees_cents != null ? (
+                  <SummaryRow label="Fees" value={summary.fees_cents} negative />
+                ) : null}
+              </div>
+              {!reconcilesOk && reconcilesGap != null ? (
+                <p className="text-xs text-critical mt-3">
+                  Items net sales ({formatCents(parsed.total_net_sales_cents)}) and Sales
+                  Summary net ({formatCents(summary.net_sales_cents)}) differ by{' '}
+                  {formatCents(Math.abs(reconcilesGap))}. Spot-check before applying.
+                </p>
+              ) : null}
+            </CardBody>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader
@@ -327,4 +412,23 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
   }
 
   return null;
+}
+
+function SummaryRow({
+  label,
+  value,
+  negative,
+}: {
+  label: string;
+  value: number;
+  negative?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between border-b border-border-subtle py-1">
+      <span className="text-ink-muted text-xs">{label}</span>
+      <span className={`tabular-nums font-semibold ${negative ? 'text-critical' : ''}`}>
+        {formatCents(value)}
+      </span>
+    </div>
+  );
 }

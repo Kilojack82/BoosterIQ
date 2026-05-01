@@ -12,6 +12,16 @@ type SaveBody = {
   total_gross_sales_cents: number;
   date_range: { start: string | null; end: string | null };
   rows: Array<MatchedSquareRow & { apply: boolean }>;
+  summary?: {
+    cash_cents: number | null;
+    card_cents: number | null;
+    cashapp_cents: number | null;
+    other_cents: number | null;
+    giftcard_cents: number | null;
+    fees_cents: number | null;
+    net_total_cents: number | null;
+  } | null;
+  parse_source?: 'csv' | 'pdf';
 };
 
 export async function POST(request: Request) {
@@ -42,6 +52,8 @@ export async function POST(request: Request) {
           total_gross_sales_cents: body.total_gross_sales_cents,
           date_range: body.date_range,
           row_count: body.rows.length,
+          parse_source: body.parse_source ?? 'csv',
+          summary: body.summary ?? null,
         },
         processed_at: new Date().toISOString(),
       })
