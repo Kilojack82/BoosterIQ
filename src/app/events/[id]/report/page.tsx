@@ -69,6 +69,40 @@ export default async function ReportPage({
           </div>
         </header>
 
+        {/* At-a-glance — top-line numbers chairs flip to first */}
+        <section className="grid grid-cols-3 gap-3 mt-6 print:mt-4 print:break-inside-avoid">
+          <Glance
+            label="Game day sales"
+            value={data.sales ? String(data.sales.total_qty) : '—'}
+            sublabel={
+              data.sales ? `${formatCents(data.sales.total_net_sales_cents)} net` : 'No sales uploaded'
+            }
+            tone="skyblue"
+          />
+          <Glance
+            label="Items needed"
+            value={String(data.inventory.items_below_par.length)}
+            sublabel={
+              data.inventory.items_below_par.length === 0
+                ? 'All at par'
+                : `${data.inventory.items_critical} critical · ${data.inventory.items_low} low`
+            }
+            tone={data.inventory.items_below_par.length > 0 ? 'critical' : 'skyblue'}
+          />
+          <Glance
+            label="Gross sales"
+            value={data.sales ? formatCents(data.sales.total_gross_sales_cents) : '—'}
+            sublabel={
+              data.sales
+                ? data.sales.total_qty === 0
+                  ? '0 transactions'
+                  : `${data.sales.total_qty} transactions`
+                : 'No sales uploaded'
+            }
+            tone="skyblue"
+          />
+        </section>
+
         {/* Sales */}
         <Section title="Sales">
           {data.sales ? (
@@ -222,6 +256,40 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs text-ink-muted print:text-gray-700">{label}</div>
       <div className="text-2xl font-bold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function Glance({
+  label,
+  value,
+  sublabel,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sublabel: string;
+  tone: 'skyblue' | 'critical' | 'gold';
+}) {
+  const valueColor =
+    tone === 'critical'
+      ? 'text-critical'
+      : tone === 'gold'
+        ? 'text-gold'
+        : 'text-skyblue';
+  return (
+    <div className="border border-border-subtle rounded-xl px-3 py-3 print:border-gray-400">
+      <div className="text-[11px] uppercase tracking-wider text-ink-muted print:text-gray-700">
+        {label}
+      </div>
+      <div
+        className={`text-[24px] font-bold leading-tight tabular-nums mt-1 ${valueColor} print:text-black`}
+      >
+        {value}
+      </div>
+      <div className="text-[11px] text-ink-muted print:text-gray-700 mt-0.5">
+        {sublabel}
+      </div>
     </div>
   );
 }
