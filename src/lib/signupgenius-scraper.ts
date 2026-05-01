@@ -70,7 +70,6 @@ export function parseScrapedHtml(html: string): ScrapeResult | ScrapeFailure {
   );
 
   let currentRole: string | null = null;
-  let positionCounter = 0;
 
   // Walk all elements in document order so role headers and their slot
   // lines stay in sequence.
@@ -81,10 +80,8 @@ export function parseScrapedHtml(html: string): ScrapeResult | ScrapeFailure {
 
     const matchesHeader = roleHeaders.is(el);
     if (matchesHeader && text.length > 0 && text.length < 120) {
-      // Heuristic: treat as a new role if it doesn't look like a name slot
       if (!/^\d+\.\s/.test(text) && !/\(open\)/i.test(text)) {
         currentRole = text;
-        positionCounter = 0;
       }
       return;
     }
@@ -94,7 +91,6 @@ export function parseScrapedHtml(html: string): ScrapeResult | ScrapeFailure {
     // Slot lines: "1. Name", "2. (open)", or just a name in a cell.
     const slotMatch = text.match(/^(\d+)\.\s*(.+)$/);
     if (slotMatch) {
-      positionCounter += 1;
       const namePart = slotMatch[2]!.trim();
       const isOpen = /^\(open\)$/i.test(namePart) || namePart === '';
       slots.push({

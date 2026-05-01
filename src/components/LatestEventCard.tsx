@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Card, CardBody, CardHeader } from './Card';
 import { formatDate } from '@/lib/format';
 import type { EventSummary } from '@/lib/dashboard-data';
@@ -43,9 +44,12 @@ export function LatestEventCard({ event }: { event: EventSummary | null }) {
           </>
         }
         meta={
-          <span className="bg-gold text-navy text-xs font-semibold rounded-full px-3 py-1">
-            Report ready
-          </span>
+          <Link
+            href={`/events/${event.id}/report`}
+            className="bg-gold text-navy text-xs font-semibold rounded-full px-3 py-1 hover:bg-gold/90 transition-colors"
+          >
+            Report ready ↗
+          </Link>
         }
       />
       <CardBody>

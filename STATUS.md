@@ -19,7 +19,7 @@ Per the build sequence in [BUILD_BRIEF.md](./BUILD_BRIEF.md):
 | 7 | SignUp Genius scraper + manual paste fallback | ✅ Code complete | scraper untested live (need a real URL); paste parser has 6 passing unit tests |
 | 8 | Volunteer panel | ✅ Code complete | dashboard now reads volunteer_slots when present; UI tested empty-state |
 | 9 | Conversational onboarding wizard | ⏭️ Not started | — |
-| 10 | PDF report generator | ⏭️ Not started | — |
+| 10 | PDF report generator | ✅ Code complete | print-stylesheet approach (Cmd+P → Save as PDF). Tested by visiting /events/[id]/report; print preview shows clean layout |
 | 11 | Polish, error states, edge case handling | ⏭️ Not started | — |
 
 (Build steps run out of brief order: 6 came before 4 so we'd have a working dashboard to demo while iterating on parsing.)

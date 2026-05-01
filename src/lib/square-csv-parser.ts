@@ -131,7 +131,15 @@ export function parseSquareCsv(input: string): SquareParseResult {
   }
 
   const rows: ParsedSquareRow[] = Array.from(buckets.values())
-    .map(({ count: _count, ...r }) => r)
+    .map((b) => ({
+      item: b.item,
+      variation: b.variation,
+      sku: b.sku,
+      category: b.category,
+      qty: b.qty,
+      net_sales_cents: b.net_sales_cents,
+      gross_sales_cents: b.gross_sales_cents,
+    }))
     .sort((a, b) => b.net_sales_cents - a.net_sales_cents);
 
   if (rows.length === 0) {

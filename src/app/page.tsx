@@ -68,7 +68,7 @@ export default async function DashboardPage() {
           coverage={data.volunteerCoverage}
         />
 
-        <QuickActionsCard />
+        <QuickActionsCard latestEventId={data.latestEvent?.id ?? null} />
 
         <Footer upcomingEvent={data.upcomingEvent} />
       </main>

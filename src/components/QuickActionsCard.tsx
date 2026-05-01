@@ -9,30 +9,6 @@ type Action = {
   disabled?: boolean;
 };
 
-const ACTIONS: Action[] = [
-  {
-    label: 'Snap receipt',
-    sublabel: 'Updates inventory',
-    iconColor: 'royal',
-    href: '/receipts/upload',
-  },
-  {
-    label: 'Square report',
-    sublabel: 'After each game',
-    iconColor: 'royal',
-    href: '/square/upload',
-  },
-  { label: 'Master sheet', sublabel: 'Google Drive', iconColor: 'gold', disabled: true },
-  {
-    label: 'Add event',
-    sublabel: 'Game + roster URL',
-    iconColor: 'gold',
-    href: '/events/new',
-  },
-  { label: 'Calendar', sublabel: 'Season schedule', iconColor: 'royal', disabled: true },
-  { label: 'Print report', sublabel: 'Board meetings', iconColor: 'gold', disabled: true },
-];
-
 function ActionTile({ a }: { a: Action }) {
   const inner = (
     <>
@@ -62,13 +38,53 @@ function ActionTile({ a }: { a: Action }) {
   return <div className={className}>{inner}</div>;
 }
 
-export function QuickActionsCard() {
+export function QuickActionsCard({
+  latestEventId,
+}: {
+  latestEventId: string | null;
+}) {
+  const actions: Action[] = [
+    {
+      label: 'Snap receipt',
+      sublabel: 'Updates inventory',
+      iconColor: 'royal',
+      href: '/receipts/upload',
+    },
+    {
+      label: 'Square report',
+      sublabel: 'After each game',
+      iconColor: 'royal',
+      href: '/square/upload',
+    },
+    { label: 'Master sheet', sublabel: 'Google Drive', iconColor: 'gold', disabled: true },
+    {
+      label: 'Add event',
+      sublabel: 'Game + roster URL',
+      iconColor: 'gold',
+      href: '/events/new',
+    },
+    { label: 'Calendar', sublabel: 'Season schedule', iconColor: 'royal', disabled: true },
+    latestEventId
+      ? {
+          label: 'Print report',
+          sublabel: 'Last game recap',
+          iconColor: 'gold',
+          href: `/events/${latestEventId}/report`,
+        }
+      : {
+          label: 'Print report',
+          sublabel: 'No games yet',
+          iconColor: 'gold',
+          disabled: true,
+        },
+  ];
+
   return (
     <Card>
       <CardHeader title="Quick actions" />
       <CardBody>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {ACTIONS.map((a) => (
+          {actions.map((a) => (
             <ActionTile key={a.label} a={a} />
           ))}
         </div>
