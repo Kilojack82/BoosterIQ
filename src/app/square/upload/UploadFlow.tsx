@@ -84,6 +84,7 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
       parsedResp.rows.forEach((r: MatchedRow, i: number) => {
         defaults[i] = !!r.catalog_match;
       });
+      setParsed(parsedResp);
       setApplyMap(defaults);
       setStage('review');
     } catch (err) {
