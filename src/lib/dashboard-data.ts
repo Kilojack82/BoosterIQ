@@ -84,6 +84,7 @@ export type ItemsSoldRow = {
   name: string;
   category: string | null;
   sold_qty: number;
+  net_sales_cents: number;
   is_tracked: boolean; // has at least one base-stock count
 };
 
@@ -213,19 +214,49 @@ export async function getDashboardData(): Promise<DashboardData> {
       existing.sold += Math.abs(m.delta);
       allByCatalog.set(m.catalog_item_id, existing);
     }
+
+    // Look up a representative price per catalog_item from menu_items so
+    // we can approximate per-item revenue. parsed_data_json only stores
+    // totals, not per-row $, so this is the cleanest path for V1.
+    const itemIds = Array.from(allByCatalog.keys());
+    const priceByItem = new Map<string, number>();
+    if (itemIds.length > 0) {
+      const { data: menus } = await supabase
+        .from('menu_items')
+        .select('catalog_item_id, price_cents')
+        .in('catalog_item_id', itemIds);
+      for (const m of menus ?? []) {
+        if (m.catalog_item_id && m.price_cents != null) {
+          // First price wins (variations of the same catalog_item are
+          // usually priced the same).
+          if (!priceByItem.has(m.catalog_item_id as string)) {
+            priceByItem.set(m.catalog_item_id as string, m.price_cents as number);
+          }
+        }
+      }
+    }
+
     for (const agg of allByCatalog.values()) {
       if (agg.sold <= 0) continue;
+      const price = priceByItem.get(agg.item.id) ?? 0;
+      const netSales = price * agg.sold;
       itemsSold.push({
         id: agg.item.id,
         code: agg.item.code,
         name: agg.item.name,
         category: agg.item.category,
         sold_qty: agg.sold,
+        net_sales_cents: netSales,
         is_tracked: baseStockTracked.has(agg.item.id),
       });
       itemsSoldTotalQty += agg.sold;
     }
-    itemsSold.sort((a, b) => b.sold_qty - a.sold_qty || a.name.localeCompare(b.name));
+    itemsSold.sort(
+      (a, b) =>
+        b.sold_qty - a.sold_qty ||
+        b.net_sales_cents - a.net_sales_cents ||
+        a.name.localeCompare(b.name),
+    );
 
     // Pull totals from the import row's parsed_data_json
     const { data: importRow } = await supabase
