@@ -3,27 +3,24 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-type ResetResult = {
-  square_imports_removed: number;
-  stock_movements_removed: number;
-  catalog_items_restored: number;
-  volunteer_slots_removed: number;
-  receipts_removed: number;
+type ClearResult = {
+  reconcile_movements_deleted: number;
+  catalog_items_reset: number;
 };
 
-export function ResetButton({ eventId, eventName }: { eventId: string; eventName: string }) {
+export function ClearInventoryButton() {
   const router = useRouter();
   const [stage, setStage] = useState<'idle' | 'confirming' | 'busy' | 'done'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ResetResult | null>(null);
+  const [result, setResult] = useState<ClearResult | null>(null);
 
-  async function handleReset() {
+  async function handleClear() {
     setStage('busy');
     setError(null);
     try {
-      const res = await fetch(`/api/events/${eventId}/reset`, { method: 'POST' });
+      const res = await fetch('/api/inventory/clear', { method: 'POST' });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'Reset failed');
+      if (!res.ok) throw new Error(json.error ?? 'Clear failed');
       setResult(json);
       setStage('done');
       router.refresh();
@@ -40,7 +37,7 @@ export function ResetButton({ eventId, eventName }: { eventId: string; eventName
         onClick={() => setStage('confirming')}
         className="text-sm font-semibold text-critical hover:underline"
       >
-        Reset event data
+        Clear master inventory
       </button>
     );
   }
@@ -49,21 +46,21 @@ export function ResetButton({ eventId, eventName }: { eventId: string; eventName
     return (
       <div className="bg-critical/10 border border-critical rounded-lg px-4 py-3 space-y-3">
         <div className="text-sm">
-          <span className="font-semibold text-critical">Reset {eventName}?</span> This
-          deletes the Square sales import, volunteer roster, and any receipts dated
-          within 7 days before the event, and reverses their stock movements back into{' '}
-          <code className="font-mono">current_stock</code>. The event itself stays so you
-          can re-upload.
+          <span className="font-semibold text-critical">Clear master inventory?</span>{' '}
+          This removes every Base Stock count and resets{' '}
+          <code className="font-mono">current_stock</code> to 0 on all concession items.
+          The shopping list will be empty until a new master inventory xlsx is uploaded.
+          Catalog rows themselves are kept so Square sales still match by name.
         </div>
         {error ? <div className="text-sm text-critical">{error}</div> : null}
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={handleReset}
+            onClick={handleClear}
             disabled={stage === 'busy'}
             className="bg-critical hover:bg-critical/90 text-white font-semibold rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
           >
-            {stage === 'busy' ? 'Resetting…' : 'Yes, reset event data'}
+            {stage === 'busy' ? 'Clearing…' : 'Yes, clear master inventory'}
           </button>
           <button
             type="button"
@@ -81,16 +78,12 @@ export function ResetButton({ eventId, eventName }: { eventId: string; eventName
     );
   }
 
-  // done
   return (
     <div className="bg-filled/10 border border-filled rounded-lg px-4 py-3 text-sm">
-      <div className="font-semibold text-filled mb-1">Reset complete</div>
+      <div className="font-semibold text-filled mb-1">Master inventory cleared</div>
       <ul className="text-xs text-ink-muted list-disc list-inside space-y-0.5">
-        <li>{result?.square_imports_removed ?? 0} Square import(s) removed</li>
-        <li>{result?.receipts_removed ?? 0} receipt(s) removed</li>
-        <li>{result?.stock_movements_removed ?? 0} stock movements deleted</li>
-        <li>{result?.catalog_items_restored ?? 0} items had stock restored</li>
-        <li>{result?.volunteer_slots_removed ?? 0} volunteer slots cleared</li>
+        <li>{result?.reconcile_movements_deleted ?? 0} base stock entries removed</li>
+        <li>{result?.catalog_items_reset ?? 0} concession items reset to 0</li>
       </ul>
       <button
         type="button"

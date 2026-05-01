@@ -66,6 +66,7 @@ export default async function DashboardPage() {
           rows={data.itemsSold}
           totals={data.itemsSoldTotals}
           hasBaseStock={data.shoppingListContext.has_base_stock}
+          hasSalesImport={data.shoppingListContext.has_sales_import}
         />
 
         <ShoppingListCard

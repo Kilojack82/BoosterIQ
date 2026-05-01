@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { UploadFlow } from './UploadFlow';
+import { ClearInventoryButton } from './ClearInventoryButton';
 
 export const metadata = { title: 'Master Inventory · BoosterIQ' };
 export const revalidate = 0;
@@ -89,6 +90,12 @@ export default async function InventoryPage() {
         </div>
 
         <UploadFlow />
+
+        {distinctTracked > 0 ? (
+          <div className="bg-card border border-border-subtle rounded-xl px-5 py-4">
+            <ClearInventoryButton />
+          </div>
+        ) : null}
 
         {tracked && tracked.length > 0 ? (
           <div className="bg-card border border-border-subtle rounded-xl px-5 py-5">

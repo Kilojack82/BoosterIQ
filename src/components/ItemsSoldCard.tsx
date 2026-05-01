@@ -6,17 +6,32 @@ export function ItemsSoldCard({
   rows,
   totals,
   hasBaseStock,
+  hasSalesImport,
 }: {
   rows: ItemsSoldRow[];
   totals: { total_qty: number; total_net_sales_cents: number };
   hasBaseStock: boolean;
+  hasSalesImport: boolean;
 }) {
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader title="Game Day Sales" meta="From Square reports" />
+        <CardBody>
+          <p className="text-sm text-ink-muted">
+            {hasSalesImport
+              ? 'No items were captured from the latest Square report.'
+              : 'No Square reports uploaded yet. Upload one from the Square report tile and the breakdown will appear here.'}
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader
-        title="Items Sold During Game"
+        title="Game Day Sales"
         meta={
           <span className="tabular-nums">
             {totals.total_qty} items · {formatCents(totals.total_net_sales_cents)}
