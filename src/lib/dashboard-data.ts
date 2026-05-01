@@ -64,9 +64,9 @@ export type ShoppingListRow = {
   category: string | null;
   current_stock: number;
   par_level: number | null;
+  sold_qty: number;
   buy_qty: number;
   urgency: Urgency;
-  reason: 'par' | 'depleted';
 };
 
 export type EventSummary = {
@@ -124,66 +124,76 @@ export async function getDashboardData(): Promise<DashboardData> {
         .eq('club_id', club.id),
     ]);
 
-  // Shopping list — concessions only. Two reasons an item lands here:
-  //   1) par_level set AND current_stock falls below buffer (proactive)
-  //   2) current_stock <= 0 (sold out — definitely need more next game)
-  // The second case catches drinks/snacks with no par configured yet.
-  const { data: catalog } = await supabase
-    .from('catalog_items')
-    .select('id, code, name, category, current_stock, par_level')
+  // Shopping list — sales-driven. Lists every catalog item that sold in
+  // the most recent Square import. Items that sold 0 are excluded by
+  // design. Buy qty = sold × 1.5 (one game's worth + 50% buffer).
+  // Urgency reflects stock-on-hand vs. last game's sales.
+  const { data: latestSalesImport } = await supabase
+    .from('square_imports')
+    .select('id, processed_at')
     .eq('club_id', club.id)
-    .eq('is_merch', false)
-    .order('name');
+    .order('processed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const shoppingList: ShoppingListRow[] = [];
-  for (const item of catalog ?? []) {
-    // Path 1: par-tracked + below buffer
-    if (item.par_level != null) {
-      const urgency = shoppingListUrgency({
-        current_stock: item.current_stock,
-        par_level: item.par_level,
-        critical_buffer: Number(settings.critical_par_buffer),
-        low_buffer: Number(settings.low_par_buffer),
-      });
-      if (urgency != null) {
-        shoppingList.push({
-          id: item.id,
-          code: item.code,
-          name: item.name,
-          category: item.category,
-          current_stock: item.current_stock,
-          par_level: item.par_level,
-          buy_qty: Math.max(0, item.par_level * 2 - item.current_stock),
-          urgency,
-          reason: 'par',
-        });
-        continue;
-      }
+  if (latestSalesImport) {
+    type MovementRow = {
+      catalog_item_id: string;
+      delta: number;
+      catalog_items: {
+        id: string;
+        code: string;
+        name: string;
+        category: string | null;
+        current_stock: number;
+        par_level: number | null;
+        is_merch: boolean;
+      } | null;
+    };
+    const { data: movements } = await supabase
+      .from('stock_movements')
+      .select(
+        'catalog_item_id, delta, catalog_items(id, code, name, category, current_stock, par_level, is_merch)',
+      )
+      .eq('source_type', 'sale')
+      .eq('source_id', latestSalesImport.id)
+      .returns<MovementRow[]>();
+
+    type Agg = { sold: number; item: NonNullable<MovementRow['catalog_items']> };
+    const byCatalog = new Map<string, Agg>();
+    for (const m of movements ?? []) {
+      if (!m.catalog_items || m.catalog_items.is_merch) continue;
+      const existing = byCatalog.get(m.catalog_item_id) ?? {
+        sold: 0,
+        item: m.catalog_items,
+      };
+      existing.sold += Math.abs(m.delta);
+      byCatalog.set(m.catalog_item_id, existing);
     }
-    // Path 2: sold out without par tracking — recommend last game's sales × 1.5
-    if (item.current_stock <= 0) {
-      const sold = Math.max(1, Math.abs(item.current_stock));
+
+    for (const agg of byCatalog.values()) {
+      if (agg.sold <= 0) continue;
+      let urgency: Urgency = 'filled';
+      if (agg.item.current_stock <= 0) urgency = 'critical';
+      else if (agg.item.current_stock < agg.sold) urgency = 'low';
       shoppingList.push({
-        id: item.id,
-        code: item.code,
-        name: item.name,
-        category: item.category,
-        current_stock: item.current_stock,
-        par_level: item.par_level,
-        buy_qty: Math.ceil(sold * 1.5),
-        urgency: 'critical',
-        reason: 'depleted',
+        id: agg.item.id,
+        code: agg.item.code,
+        name: agg.item.name,
+        category: agg.item.category,
+        current_stock: agg.item.current_stock,
+        par_level: agg.item.par_level,
+        sold_qty: agg.sold,
+        buy_qty: Math.ceil(agg.sold * 1.5),
+        urgency,
       });
     }
+    shoppingList.sort((a, b) => {
+      const order = { critical: 0, low: 1, filled: 2 };
+      return order[a.urgency] - order[b.urgency] || b.sold_qty - a.sold_qty;
+    });
   }
-  shoppingList.sort((a, b) => {
-    const order = { critical: 0, low: 1, filled: 2 };
-    return (
-      order[a.urgency] - order[b.urgency] ||
-      Math.abs(b.current_stock) - Math.abs(a.current_stock) ||
-      a.name.localeCompare(b.name)
-    );
-  });
 
   // Events — latest past + next upcoming
   const today = new Date().toISOString().slice(0, 10);

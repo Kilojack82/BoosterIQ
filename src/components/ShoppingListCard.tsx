@@ -8,11 +8,12 @@ export function ShoppingListCard({ rows }: { rows: ShoppingListRow[] }) {
   if (rows.length === 0) {
     return (
       <Card>
-        <CardHeader title="Shopping list" meta="Auto-generated" />
+        <CardHeader title="Shopping list" meta="Based on last game's sales" />
         <CardBody>
           <div className="text-ink-muted text-sm">
-            Nothing below par right now. Add par levels to catalog items in
-            the master sheet to populate this list.
+            No Square sales uploaded yet. Upload a Square report from the Quick
+            Actions card and this list will populate with everything sold last
+            game and how much to restock.
           </div>
         </CardBody>
       </Card>
@@ -21,7 +22,7 @@ export function ShoppingListCard({ rows }: { rows: ShoppingListRow[] }) {
 
   return (
     <Card>
-      <CardHeader title="Shopping list" meta="Auto-generated" />
+      <CardHeader title="Shopping list" meta="Based on last game's sales" />
       <CardBody className="space-y-3">
         {rows.map((row) => {
           const c = urgencyClasses(row.urgency);
@@ -33,9 +34,7 @@ export function ShoppingListCard({ rows }: { rows: ShoppingListRow[] }) {
               <div className="min-w-0">
                 <div className={`font-semibold truncate ${c.text}`}>{row.name}</div>
                 <div className="text-xs text-ink-muted">
-                  {row.reason === 'par'
-                    ? `${row.current_stock} left · par ${row.par_level}`
-                    : `Sold ${Math.abs(row.current_stock)} · no par tracked`}
+                  Sold {row.sold_qty} · {row.current_stock} left
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
