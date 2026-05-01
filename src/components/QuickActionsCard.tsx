@@ -18,7 +18,12 @@ const ACTIONS: Action[] = [
   },
   { label: 'Square report', sublabel: 'After each game', iconColor: 'royal', disabled: true },
   { label: 'Master sheet', sublabel: 'Google Drive', iconColor: 'gold', disabled: true },
-  { label: 'Volunteers', sublabel: 'All games', iconColor: 'gold', disabled: true },
+  {
+    label: 'Add event',
+    sublabel: 'Game + roster URL',
+    iconColor: 'gold',
+    href: '/events/new',
+  },
   { label: 'Calendar', sublabel: 'Season schedule', iconColor: 'royal', disabled: true },
   { label: 'Print report', sublabel: 'Board meetings', iconColor: 'gold', disabled: true },
 ];

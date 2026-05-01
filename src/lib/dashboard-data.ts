@@ -22,6 +22,22 @@ export type DashboardData = {
   shoppingList: ShoppingListRow[];
   latestEvent: EventSummary | null;
   upcomingEvent: EventSummary | null;
+  volunteerCoverage: VolunteerCoverage | null;
+};
+
+export type VolunteerRoleSummary = {
+  role: string;
+  total: number;
+  filled: number;
+  open: number;
+};
+
+export type VolunteerCoverage = {
+  event_id: string;
+  total_slots: number;
+  filled_slots: number;
+  roles: VolunteerRoleSummary[];
+  last_synced_at: string | null;
 };
 
 export type ShoppingListRow = {
@@ -146,6 +162,40 @@ export async function getDashboardData(): Promise<DashboardData> {
       .maybeSingle(),
   ]);
 
+  // Volunteer coverage for the upcoming event (if any)
+  let volunteerCoverage: VolunteerCoverage | null = null;
+  if (upcomingRes.data) {
+    const { data: slots } = await supabase
+      .from('volunteer_slots')
+      .select('role, filled_by_name, scraped_at')
+      .eq('event_id', upcomingRes.data.id);
+    if (slots && slots.length > 0) {
+      const byRole = new Map<string, { total: number; filled: number }>();
+      let lastSyncedAt: string | null = null;
+      for (const s of slots) {
+        const tally = byRole.get(s.role) ?? { total: 0, filled: 0 };
+        tally.total += 1;
+        if (s.filled_by_name) tally.filled += 1;
+        byRole.set(s.role, tally);
+        if (!lastSyncedAt || (s.scraped_at && s.scraped_at > lastSyncedAt)) {
+          lastSyncedAt = s.scraped_at as string;
+        }
+      }
+      const roles: VolunteerRoleSummary[] = Array.from(byRole.entries()).map(
+        ([role, t]) => ({ role, total: t.total, filled: t.filled, open: t.total - t.filled }),
+      );
+      const total_slots = roles.reduce((a, r) => a + r.total, 0);
+      const filled_slots = roles.reduce((a, r) => a + r.filled, 0);
+      volunteerCoverage = {
+        event_id: upcomingRes.data.id,
+        total_slots,
+        filled_slots,
+        roles,
+        last_synced_at: lastSyncedAt,
+      };
+    }
+  }
+
   return {
     club,
     settings: {
@@ -163,5 +213,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     shoppingList,
     latestEvent: latestRes.data ?? null,
     upcomingEvent: upcomingRes.data ?? null,
+    volunteerCoverage,
   };
 }

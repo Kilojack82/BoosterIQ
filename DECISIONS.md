@@ -198,3 +198,17 @@ D3 chose Google Drive as the file-storage layer for receipts and Square CSVs. Th
 - Fuzzy catalog matching for non-exact names (step 4.5)
 
 **Tradeoff accepted:** receipts created in V1 step 4 have no recoverable photo — only the parse result. If the chair wants to verify a parse, she has to re-photograph. Acceptable for the pilot since she's the one running every parse and can spot-check live.
+
+### D15. Manual paste parser — regex-based for V1, Claude swap-in deferred
+**Decision:** The SignUp Genius manual-paste fallback (per D6) ships in V1 with a deterministic regex/heuristic parser, not the Claude-API parser the original D6 specified. Claude-based paste is a follow-up.
+
+**Why this differs from D6:**
+- The Anthropic credit balance is currently blocking all Claude-API calls, including step 4 (receipts). If paste also depends on Claude, the entire volunteer-coverage flow stalls behind billing.
+- The standard SignUp Genius copy-paste has a stable, well-formed shape (role header + numbered slots + "(open)" markers). A regex parser handles >90% of cases reliably and ships in ~50 lines.
+- Tests cover six scenarios (basic, time-range stripping, open-slot variants, empty input, no-slots input, dot-vs-paren slot numbering) — all green.
+
+**Tradeoffs accepted:**
+- Free-form paste with unusual formatting (no slot numbers, mixed line breaks, embedded comments) won't parse and the user will see a "no slots detected" error. Acceptable — the chair re-formats and retries, or uses the URL scraper instead.
+- Claude would tolerate weird input better. We swap to Claude as the primary paste path in V2 (or whenever credits/economics make sense), keeping regex as the offline fallback.
+
+**Files:** `src/lib/signupgenius-paste-parser.ts` + `signupgenius-paste-parser.test.ts`.

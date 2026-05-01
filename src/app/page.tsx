@@ -63,7 +63,10 @@ export default async function DashboardPage() {
 
         <ShoppingListCard rows={data.shoppingList} />
 
-        <VolunteerCoverageCard upcomingEvent={data.upcomingEvent} />
+        <VolunteerCoverageCard
+          upcomingEvent={data.upcomingEvent}
+          coverage={data.volunteerCoverage}
+        />
 
         <QuickActionsCard />
 
