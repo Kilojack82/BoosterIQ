@@ -3,7 +3,19 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-type Result = {
+type SimpleResult = {
+  format: 'simple';
+  total_rows: number;
+  matched_by_code: number;
+  matched_by_name: number;
+  created: number;
+  base_stock_applied: number;
+  skipped: number;
+  skipped_reasons: string[];
+};
+
+type MasterResult = {
+  format: 'master';
   catalog_concessions: number;
   catalog_merch: number;
   menu_items: number;
@@ -12,6 +24,8 @@ type Result = {
   base_stock_skipped: number;
   settings_fields_updated: number;
 };
+
+type Result = SimpleResult | MasterResult;
 
 export function UploadFlow() {
   const router = useRouter();
@@ -45,9 +59,14 @@ export function UploadFlow() {
           Upload master inventory
         </div>
         <p className="text-sm text-ink-muted">
-          Excel (.xlsx) with tabs: Catalog, Apparel &amp; Merch, Menu, Settings, and an
-          optional <strong>Base Stock</strong> tab for current physical counts. Uploading
-          replaces existing data; existing rows are upserted by code.
+          Recommended format: a one-page xlsx with two columns —{' '}
+          <code className="font-mono">Item Name</code> and{' '}
+          <code className="font-mono">Base Stock</code>. Items match by name to your
+          existing catalog. Unknown names are added as new catalog rows automatically.
+        </p>
+        <p className="text-xs text-ink-muted mt-2">
+          Full master-sheet format (with Catalog / Menu / Apparel / Settings tabs) still
+          works if uploaded — auto-detected.
         </p>
       </div>
 
@@ -70,9 +89,35 @@ export function UploadFlow() {
         {error ? <p className="text-sm text-critical">{error}</p> : null}
       </form>
 
-      {result ? (
+      {result?.format === 'simple' ? (
         <div className="bg-filled/10 border border-filled rounded-lg px-3 py-3 text-sm space-y-1">
-          <div className="text-filled font-semibold">Import complete</div>
+          <div className="text-filled font-semibold">Base stock import complete</div>
+          <div className="text-ink-muted text-xs space-y-0.5">
+            <div>{result.total_rows} rows scanned</div>
+            <div>{result.base_stock_applied} base stock counts applied</div>
+            <div>
+              {result.matched_by_code} matched by Item ID ·{' '}
+              {result.matched_by_name} matched by name · {result.created} created
+            </div>
+            {result.skipped > 0 ? (
+              <div className="text-critical">
+                {result.skipped} skipped
+                {result.skipped_reasons.length > 0 ? (
+                  <ul className="list-disc list-inside mt-1">
+                    {result.skipped_reasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {result?.format === 'master' ? (
+        <div className="bg-filled/10 border border-filled rounded-lg px-3 py-3 text-sm space-y-1">
+          <div className="text-filled font-semibold">Master sheet import complete</div>
           <div className="text-ink-muted text-xs space-y-0.5">
             <div>{result.catalog_concessions} concession items</div>
             <div>{result.catalog_merch} merch items</div>

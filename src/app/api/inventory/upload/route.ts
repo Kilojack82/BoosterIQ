@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { importMasterSheet } from '@/lib/master-sheet-importer';
+import * as XLSX from 'xlsx';
+import { importMasterSheet, type ImportResult } from '@/lib/master-sheet-importer';
+import {
+  detectSimpleFormat,
+  importSimpleInventory,
+  type SimpleImportResult,
+} from '@/lib/simple-inventory-importer';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -23,7 +29,19 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await importMasterSheet(buffer);
+    const wb = XLSX.read(buffer, { type: 'buffer' });
+
+    // Try the simple Item Name + Base Stock format first; fall back to the
+    // full master-sheet format (Catalog/Menu/Apparel/Settings tabs).
+    const simple = detectSimpleFormat(wb);
+    let result: SimpleImportResult | (ImportResult & { format: 'master' });
+
+    if (simple) {
+      result = await importSimpleInventory(wb, simple);
+    } else {
+      const master = await importMasterSheet(buffer);
+      result = { ...master, format: 'master' };
+    }
 
     revalidatePath('/');
     revalidatePath('/inventory');
