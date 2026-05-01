@@ -24,6 +24,11 @@ export type DashboardData = {
     has_sales_import: boolean;
     has_base_stock: boolean;
   };
+  itemsSold: ItemsSoldRow[];
+  itemsSoldTotals: {
+    total_qty: number;
+    total_net_sales_cents: number;
+  };
   latestEvent: EventSummary | null;
   upcomingEvent: EventSummary | null;
   volunteerCoverage: VolunteerCoverage | null;
@@ -71,6 +76,15 @@ export type ShoppingListRow = {
   sold_qty: number;
   buy_qty: number;
   urgency: Urgency;
+};
+
+export type ItemsSoldRow = {
+  id: string;
+  code: string;
+  name: string;
+  category: string | null;
+  sold_qty: number;
+  is_tracked: boolean; // has at least one base-stock count
 };
 
 export type EventSummary = {
@@ -141,6 +155,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     .maybeSingle();
 
   const shoppingList: ShoppingListRow[] = [];
+  const itemsSold: ItemsSoldRow[] = [];
+  let itemsSoldTotalQty = 0;
+  let itemsSoldTotalNetCents = 0;
+
   // Items with at least one reconcile movement = items the chair has
   // counted via the Base Stock tab. Only these appear on the shopping
   // list. Cheeseburger / Hot Dog / Pizza Slice etc. won't be counted in
@@ -182,10 +200,51 @@ export async function getDashboardData(): Promise<DashboardData> {
       .returns<MovementRow[]>();
 
     type Agg = { sold: number; item: NonNullable<MovementRow['catalog_items']> };
+    // First pass: aggregate ALL items that sold (no base-stock filter).
+    // This populates the Items Sold card. Second pass below filters to
+    // base-stock-tracked items for the Shopping List.
+    const allByCatalog = new Map<string, Agg>();
+    for (const m of movements ?? []) {
+      if (!m.catalog_items || m.catalog_items.is_merch) continue;
+      const existing = allByCatalog.get(m.catalog_item_id) ?? {
+        sold: 0,
+        item: m.catalog_items,
+      };
+      existing.sold += Math.abs(m.delta);
+      allByCatalog.set(m.catalog_item_id, existing);
+    }
+    for (const agg of allByCatalog.values()) {
+      if (agg.sold <= 0) continue;
+      itemsSold.push({
+        id: agg.item.id,
+        code: agg.item.code,
+        name: agg.item.name,
+        category: agg.item.category,
+        sold_qty: agg.sold,
+        is_tracked: baseStockTracked.has(agg.item.id),
+      });
+      itemsSoldTotalQty += agg.sold;
+    }
+    itemsSold.sort((a, b) => b.sold_qty - a.sold_qty || a.name.localeCompare(b.name));
+
+    // Pull totals from the import row's parsed_data_json
+    const { data: importRow } = await supabase
+      .from('square_imports')
+      .select('parsed_data_json')
+      .eq('id', latestSalesImport.id)
+      .single();
+    if (importRow?.parsed_data_json) {
+      const j = importRow.parsed_data_json as Record<string, unknown>;
+      const summary = j.summary as Record<string, number | null> | null;
+      itemsSoldTotalNetCents = summary?.net_sales_cents
+        ? Number(summary.net_sales_cents)
+        : Number(j.total_net_sales_cents ?? 0);
+    }
+
+    // Second pass for shopping list — base-stock-tracked items only
     const byCatalog = new Map<string, Agg>();
     for (const m of movements ?? []) {
       if (!m.catalog_items || m.catalog_items.is_merch) continue;
-      // Filter to base-stock-tracked items only.
       if (!baseStockTracked.has(m.catalog_item_id)) continue;
       const existing = byCatalog.get(m.catalog_item_id) ?? {
         sold: 0,
@@ -334,6 +393,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     },
     shoppingList,
     shoppingListContext,
+    itemsSold,
+    itemsSoldTotals: {
+      total_qty: itemsSoldTotalQty,
+      total_net_sales_cents: itemsSoldTotalNetCents,
+    },
     latestEvent: latestRes.data ?? null,
     upcomingEvent: upcomingRes.data ?? null,
     volunteerCoverage,

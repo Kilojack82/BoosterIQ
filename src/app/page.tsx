@@ -3,6 +3,7 @@ import { formatCents } from '@/lib/format';
 import { Header } from '@/components/Header';
 import { LatestEventCard } from '@/components/LatestEventCard';
 import { KpiStrip } from '@/components/KpiStrip';
+import { ItemsSoldCard } from '@/components/ItemsSoldCard';
 import { ShoppingListCard } from '@/components/ShoppingListCard';
 import { VolunteerCoverageCard } from '@/components/VolunteerCoverageCard';
 import { QuickActionsCard } from '@/components/QuickActionsCard';
@@ -59,6 +60,12 @@ export default async function DashboardPage() {
               tone: 'royal',
             },
           ]}
+        />
+
+        <ItemsSoldCard
+          rows={data.itemsSold}
+          totals={data.itemsSoldTotals}
+          hasBaseStock={data.shoppingListContext.has_base_stock}
         />
 
         <ShoppingListCard
