@@ -68,7 +68,12 @@ export function QuickActionsCard({
       iconColor: 'gold',
       href: '/events/new',
     },
-    { label: 'Calendar', sublabel: 'Season schedule', iconColor: 'royal', disabled: true },
+    {
+      label: 'Calendar',
+      sublabel: 'All events',
+      iconColor: 'royal',
+      href: '/events',
+    },
     latestEventId
       ? {
           label: 'Print report',

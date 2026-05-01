@@ -8,6 +8,7 @@ export function NewEventForm() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [homeAway, setHomeAway] = useState<'home' | 'away' | ''>('');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -15,12 +16,18 @@ export function NewEventForm() {
     setError(null);
 
     const fd = new FormData(e.currentTarget);
+    const isHome =
+      homeAway === 'home' ? true : homeAway === 'away' ? false : null;
     const payload = {
       name: String(fd.get('name') || '').trim(),
       opponent: String(fd.get('opponent') || '').trim() || null,
-      is_home: fd.get('is_home') === 'home' ? true : fd.get('is_home') === 'away' ? false : null,
+      is_home: isHome,
       date: String(fd.get('date') || '').trim(),
-      signupgenius_url: String(fd.get('signupgenius_url') || '').trim() || null,
+      // SignUp Genius URL only matters for home games; ignore the field entirely if Away.
+      signupgenius_url:
+        isHome === false
+          ? null
+          : String(fd.get('signupgenius_url') || '').trim() || null,
     };
 
     try {
@@ -31,7 +38,9 @@ export function NewEventForm() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Insert failed');
-      router.push(payload.signupgenius_url ? `/events/${json.id}/sync` : '/');
+      router.push(
+        payload.signupgenius_url ? `/events/${json.id}/sync` : `/events/${json.id}`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
       setBusy(false);
@@ -63,8 +72,9 @@ export function NewEventForm() {
           <Field label="Home or away">
             <select
               name="is_home"
+              value={homeAway}
+              onChange={(e) => setHomeAway(e.target.value as 'home' | 'away' | '')}
               className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-ink"
-              defaultValue=""
             >
               <option value="">—</option>
               <option value="home">Home</option>
@@ -79,14 +89,23 @@ export function NewEventForm() {
               className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-ink"
             />
           </Field>
-          <Field label="SignUp Genius URL">
-            <input
-              type="url"
-              name="signupgenius_url"
-              placeholder="https://www.signupgenius.com/go/..."
-              className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-ink"
-            />
-          </Field>
+          {homeAway !== 'away' ? (
+            <Field label="SignUp Genius URL">
+              <input
+                type="url"
+                name="signupgenius_url"
+                placeholder="https://www.signupgenius.com/go/..."
+                className="w-full bg-surface border border-border-subtle rounded-lg px-3 py-2 text-ink"
+              />
+              <p className="text-xs text-ink-muted mt-1">
+                Only home games need a volunteer roster. Leave blank if not applicable.
+              </p>
+            </Field>
+          ) : (
+            <p className="text-xs text-ink-muted">
+              Away game — no volunteer roster needed.
+            </p>
+          )}
           {error ? <p className="text-sm text-critical">{error}</p> : null}
           <button
             type="submit"

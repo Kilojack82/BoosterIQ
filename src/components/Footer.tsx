@@ -25,7 +25,7 @@ export function Footer({ upcomingEvent }: { upcomingEvent: EventSummary | null }
         · {formatDate(upcomingEvent.date)}
       </div>
       <Link
-        href={`/events/${upcomingEvent.id}/sync`}
+        href={`/events/${upcomingEvent.id}`}
         className="bg-gold text-navy text-sm font-semibold rounded-full px-4 py-1 shrink-0"
       >
         Game prep ↗

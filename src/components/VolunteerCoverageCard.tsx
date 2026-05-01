@@ -36,6 +36,23 @@ export function VolunteerCoverageCard({
     );
   }
 
+  // Away games: no concession volunteer slots needed.
+  if (upcomingEvent.is_home === false) {
+    return (
+      <Card>
+        <CardHeader
+          title={`Next event — ${upcomingEvent.name}`}
+          meta="Away game"
+        />
+        <CardBody>
+          <div className="text-ink-muted text-sm">
+            No volunteer roster needed for away games.
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
+
   if (!coverage) {
     return (
       <Card>
