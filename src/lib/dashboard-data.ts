@@ -20,6 +20,10 @@ export type DashboardData = {
     events: number;
   };
   shoppingList: ShoppingListRow[];
+  shoppingListContext: {
+    has_sales_import: boolean;
+    has_base_stock: boolean;
+  };
   latestEvent: EventSummary | null;
   upcomingEvent: EventSummary | null;
   volunteerCoverage: VolunteerCoverage | null;
@@ -137,18 +141,23 @@ export async function getDashboardData(): Promise<DashboardData> {
     .maybeSingle();
 
   const shoppingList: ShoppingListRow[] = [];
+  // Items with at least one reconcile movement = items the chair has
+  // counted via the Base Stock tab. Only these appear on the shopping
+  // list. Cheeseburger / Hot Dog / Pizza Slice etc. won't be counted in
+  // Base Stock (they're recipe items), so they're excluded automatically.
+  const { data: reconciled } = await supabase
+    .from('stock_movements')
+    .select('catalog_item_id')
+    .eq('source_type', 'reconcile');
+  const baseStockTracked = new Set(
+    (reconciled ?? []).map((r) => r.catalog_item_id as string),
+  );
+  const shoppingListContext = {
+    has_sales_import: !!latestSalesImport,
+    has_base_stock: baseStockTracked.size > 0,
+  };
+
   if (latestSalesImport) {
-    // Items with at least one reconcile movement = items the chair has
-    // counted via the Base Stock tab. Only these appear on the shopping
-    // list. Cheeseburger / Hot Dog / Pizza Slice etc. won't be counted in
-    // Base Stock (they're recipe items), so they're excluded automatically.
-    const { data: reconciled } = await supabase
-      .from('stock_movements')
-      .select('catalog_item_id')
-      .eq('source_type', 'reconcile');
-    const baseStockTracked = new Set(
-      (reconciled ?? []).map((r) => r.catalog_item_id as string),
-    );
 
     type MovementRow = {
       catalog_item_id: string;
@@ -320,6 +329,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       events: events.count ?? 0,
     },
     shoppingList,
+    shoppingListContext,
     latestEvent: latestRes.data ?? null,
     upcomingEvent: upcomingRes.data ?? null,
     volunteerCoverage,
