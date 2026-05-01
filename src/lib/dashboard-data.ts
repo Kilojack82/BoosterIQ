@@ -197,10 +197,10 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      // Buy enough to bring stock up to target for next game.
-      // Target = par_level if set, else what we sold this game.
-      const target = agg.item.par_level ?? agg.sold;
-      const buy = Math.max(0, target - agg.item.current_stock);
+      // Buy = what was sold minus what's still on hand.
+      // par_level is informational only; receipts and re-uploaded
+      // master inventory keep current_stock fresh.
+      const buy = Math.max(0, agg.sold - agg.item.current_stock);
       let urgency: Urgency = 'filled';
       if (agg.item.current_stock <= 0) urgency = 'critical';
       else if (agg.item.current_stock < agg.sold) urgency = 'low';
