@@ -13,7 +13,7 @@ type Tier = {
 
 function tierFor(index: number): Tier {
   if (index < 5) {
-    return { rowBg: 'bg-royal/15', rowBorder: 'border-royal', text: 'text-royal' };
+    return { rowBg: 'bg-royal/15', rowBorder: 'border-royal', text: 'text-skyblue' };
   }
   if (index < 10) {
     return { rowBg: 'bg-gold/15', rowBorder: 'border-gold', text: 'text-gold' };
@@ -116,7 +116,7 @@ export function ItemsSoldCard({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-faint">
-          <Legend swatch="bg-royal" label="Top 5 sellers" />
+          <Legend swatch="bg-skyblue" label="Top 5 sellers" />
           <Legend swatch="bg-gold" label="Next 5" />
           <Legend swatch="bg-cream" label="Rest" />
         </div>
