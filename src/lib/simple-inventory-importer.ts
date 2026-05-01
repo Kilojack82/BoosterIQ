@@ -246,7 +246,7 @@ export async function importSimpleInventory(
         notes: trim(cell(ci.notes)) ?? 'Auto-created from base stock upload',
         vendor: trim(cell(ci.vendor)),
         cost_basis_cents: dollarsToCents(cell(ci.costBasis)),
-        par_level: numberOrNull(cell(ci.parLevel)),
+        par_level: numberOrNull(cell(ci.parLevel)) ?? counted,
         square_token: trim(cell(ci.squareToken)),
         reference_handle: trim(cell(ci.squareHandle)),
       };
@@ -267,12 +267,14 @@ export async function importSimpleInventory(
       byCode.set(newCode, { id: catalogId, current_stock: counted });
     }
 
-    // For existing rows, update the optional fields they may have provided
+    // For existing rows, update the optional fields they may have provided.
+    // par_level always falls back to the counted base stock so the shopping
+    // list can compute "buy = base - current_stock" (refill to base).
     if (matchType) {
       const updates: Record<string, unknown> = {};
       const cat = trim(cell(ci.category));
       const unit = trim(cell(ci.unit));
-      const par = numberOrNull(cell(ci.parLevel));
+      const par = numberOrNull(cell(ci.parLevel)) ?? counted;
       const costBasis = dollarsToCents(cell(ci.costBasis));
       const vendor = trim(cell(ci.vendor));
       const notes = trim(cell(ci.notes));
@@ -280,7 +282,7 @@ export async function importSimpleInventory(
       const sqHandle = trim(cell(ci.squareHandle));
       if (cat != null) updates.category = cat;
       if (unit != null) updates.unit = unit;
-      if (par != null) updates.par_level = par;
+      updates.par_level = par;
       if (costBasis != null) updates.cost_basis_cents = costBasis;
       if (vendor != null) updates.vendor = vendor;
       if (notes != null) updates.notes = notes;

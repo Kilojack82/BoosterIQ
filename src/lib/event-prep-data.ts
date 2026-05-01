@@ -164,10 +164,11 @@ export async function getEventPrep(eventId: string): Promise<EventPrep | null> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      // Buy = last game's sales minus what's currently on hand.
-      // Receipts already updated current_stock; a fresh master inventory
-      // upload after a supply run resets current_stock to the new total.
-      const buy = Math.max(0, agg.sold - agg.item.current_stock);
+      // Buy = refill target minus what's on hand. The base stock count
+      // from the master inventory is stored on par_level; if it isn't
+      // present, fall back to last-game sales as the implied target.
+      const base = agg.item.par_level ?? agg.item.current_stock + agg.sold;
+      const buy = Math.max(0, base - agg.item.current_stock);
       rows.push({
         id: agg.item.id,
         code: agg.item.code,

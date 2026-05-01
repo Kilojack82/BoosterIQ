@@ -287,13 +287,14 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      // Buy = what was sold minus what's still on hand.
-      // par_level is informational only; receipts and re-uploaded
-      // master inventory keep current_stock fresh.
-      const buy = Math.max(0, agg.sold - agg.item.current_stock);
+      // Buy = how much to refill back to the base stock count. The simple
+      // importer stores that count as par_level so the dashboard always has
+      // a "refill target" without needing extra columns.
+      const base = agg.item.par_level ?? agg.item.current_stock + agg.sold;
+      const buy = Math.max(0, base - agg.item.current_stock);
       let urgency: Urgency = 'filled';
       if (agg.item.current_stock <= 0) urgency = 'critical';
-      else if (agg.item.current_stock < agg.sold) urgency = 'low';
+      else if (agg.item.current_stock < base) urgency = 'low';
       shoppingList.push({
         id: agg.item.id,
         code: agg.item.code,
