@@ -105,6 +105,7 @@ export async function getEventPrep(eventId: string): Promise<EventPrep | null> {
         name: string;
         category: string | null;
         current_stock: number;
+        par_level: number | null;
         is_merch: boolean;
       } | null;
     };
@@ -112,7 +113,7 @@ export async function getEventPrep(eventId: string): Promise<EventPrep | null> {
     const { data: salesMoves } = await supabase
       .from('stock_movements')
       .select(
-        'catalog_item_id, delta, catalog_items(id, code, name, category, current_stock, is_merch)',
+        'catalog_item_id, delta, catalog_items(id, code, name, category, current_stock, par_level, is_merch)',
       )
       .eq('source_type', 'sale')
       .eq('source_id', prevImport.id)
@@ -163,7 +164,9 @@ export async function getEventPrep(eventId: string): Promise<EventPrep | null> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      const target = Math.ceil(agg.sold * 1.5);
+      // Buy enough to bring stock up to target for the next game.
+      // Target = par_level if set, else what we sold last game.
+      const target = agg.item.par_level ?? agg.sold;
       const buy = Math.max(0, target - agg.item.current_stock);
       rows.push({
         id: agg.item.id,

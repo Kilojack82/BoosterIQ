@@ -197,6 +197,10 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
+      // Buy enough to bring stock up to target for next game.
+      // Target = par_level if set, else what we sold this game.
+      const target = agg.item.par_level ?? agg.sold;
+      const buy = Math.max(0, target - agg.item.current_stock);
       let urgency: Urgency = 'filled';
       if (agg.item.current_stock <= 0) urgency = 'critical';
       else if (agg.item.current_stock < agg.sold) urgency = 'low';
@@ -208,7 +212,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         current_stock: agg.item.current_stock,
         par_level: agg.item.par_level,
         sold_qty: agg.sold,
-        buy_qty: Math.ceil(agg.sold * 1.5),
+        buy_qty: buy,
         urgency,
       });
     }
