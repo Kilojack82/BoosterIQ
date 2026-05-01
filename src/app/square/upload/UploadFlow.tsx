@@ -113,9 +113,19 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
+      const text = await res.text();
+      let json: { applied?: number; error?: string } & Record<string, unknown>;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.status === 504
+            ? 'Apply timed out. The number of items may be too large for one batch — try unchecking some rows and applying in two passes.'
+            : `Server returned status ${res.status} (non-JSON). Check Netlify function logs.`,
+        );
+      }
       if (!res.ok) throw new Error(json.error ?? 'Save failed');
-      setResult(json);
+      setResult(json as { depleted: number; skippedNoCatalog: number; skippedUserUnchecked: number; total_rows: number });
       setStage('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

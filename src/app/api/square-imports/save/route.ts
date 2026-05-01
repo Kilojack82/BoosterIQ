@@ -4,6 +4,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import type { MatchedSquareRow } from '@/lib/square-csv-matcher';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 type SaveBody = {
   event_id: string | null;
@@ -66,7 +67,17 @@ export async function POST(request: Request) {
       );
     }
 
-    let depleted = 0;
+    // Partition rows once. Aggregate per catalog_item so each item only
+    // touches the database twice (one stock_movement insert + one
+    // catalog_items update), rather than 3× per line.
+    const movementsToInsert: Array<{
+      catalog_item_id: string;
+      delta: number;
+      source_type: 'sale';
+      source_id: string;
+      notes: string;
+    }> = [];
+    const deltaByCatalog = new Map<string, number>();
     let skippedNoCatalog = 0;
     let skippedUserUnchecked = 0;
 
@@ -76,44 +87,63 @@ export async function POST(request: Request) {
         continue;
       }
       if (!row.catalog_match) {
-        // Menu item exists but no catalog_item link (recipe-only items like
-        // "Hot Dog"), or no menu match at all. Counted in totals; not
-        // depleted from inventory in V1.
         skippedNoCatalog += 1;
         continue;
       }
-      const catalogId = row.catalog_match.id;
       const delta = -Math.abs(Math.round(row.qty));
       if (delta === 0) continue;
-
-      const { error: moveErr } = await supabase.from('stock_movements').insert({
-        catalog_item_id: catalogId,
+      movementsToInsert.push({
+        catalog_item_id: row.catalog_match.id,
         delta,
         source_type: 'sale',
-        source_id: imp.id,
+        source_id: imp.id as string,
         notes: `Square sale: ${row.item}${row.variation ? ` (${row.variation})` : ''}`,
       });
-      if (moveErr) {
-        console.error('stock_movement insert failed', row.item, moveErr);
-        continue;
+      deltaByCatalog.set(
+        row.catalog_match.id,
+        (deltaByCatalog.get(row.catalog_match.id) ?? 0) + delta,
+      );
+    }
+
+    let depleted = 0;
+
+    if (movementsToInsert.length > 0) {
+      const { error: insErr } = await supabase
+        .from('stock_movements')
+        .insert(movementsToInsert);
+      if (insErr) {
+        console.error('bulk stock_movements insert failed', insErr);
+        return NextResponse.json(
+          { error: `stock_movements insert: ${insErr.message}` },
+          { status: 500 },
+        );
       }
 
-      const { data: current } = await supabase
+      const ids = Array.from(deltaByCatalog.keys());
+      const { data: currents, error: fetchErr } = await supabase
         .from('catalog_items')
-        .select('current_stock')
-        .eq('id', catalogId)
-        .single();
-      const newStock = (current?.current_stock ?? 0) + delta;
-      const { error: stockErr } = await supabase
-        .from('catalog_items')
-        .update({ current_stock: newStock })
-        .eq('id', catalogId);
-      if (stockErr) {
-        console.error('current_stock update failed', catalogId, stockErr);
-        continue;
+        .select('id, current_stock')
+        .in('id', ids);
+      if (fetchErr) {
+        console.error('bulk current_stock fetch failed', fetchErr);
       }
 
-      depleted += 1;
+      // Group items into chunks and run updates in parallel — Postgres
+      // handles concurrent updates fine since each touches a distinct row.
+      const updates = (currents ?? []).map(async (c) => {
+        const delta = deltaByCatalog.get(c.id as string) ?? 0;
+        const { error: stockErr } = await supabase
+          .from('catalog_items')
+          .update({ current_stock: c.current_stock + delta })
+          .eq('id', c.id);
+        if (stockErr) {
+          console.error('current_stock update failed', c.id, stockErr.message);
+          return false;
+        }
+        return true;
+      });
+      const results = await Promise.all(updates);
+      depleted = results.filter(Boolean).length;
     }
 
     revalidatePath('/');
