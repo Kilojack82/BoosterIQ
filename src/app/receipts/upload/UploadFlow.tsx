@@ -30,7 +30,11 @@ export function UploadFlow() {
   const [error, setError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParseResponse | null>(null);
   const [applyMap, setApplyMap] = useState<Record<number, boolean>>({});
-  const [result, setResult] = useState<{ applied: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{
+    applied: number;
+    created: number;
+    skipped: number;
+  } | null>(null);
 
   async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -73,7 +77,7 @@ export function UploadFlow() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Save failed');
-      setResult({ applied: json.applied, skipped: json.skipped });
+      setResult({ applied: json.applied, created: json.created ?? 0, skipped: json.skipped });
       setStage('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -151,12 +155,11 @@ export function UploadFlow() {
                 key={i}
                 className={`flex items-start gap-3 rounded-lg border border-border-subtle px-3 py-3 ${
                   applyMap[i] ? 'bg-white/5' : ''
-                } ${li.catalog_match ? '' : 'opacity-60'}`}
+                }`}
               >
                 <input
                   type="checkbox"
                   checked={!!applyMap[i]}
-                  disabled={!li.catalog_match}
                   onChange={(e) =>
                     setApplyMap((m) => ({ ...m, [i]: e.target.checked }))
                   }
@@ -188,8 +191,8 @@ export function UploadFlow() {
                       → {li.catalog_match.code} · {li.catalog_match.name}
                     </div>
                   ) : (
-                    <div className="text-xs text-ink-faint mt-1">
-                      No catalog match — skipped
+                    <div className="text-xs text-low mt-1">
+                      No catalog match — checking the box adds it as a new catalog item (Ingredient)
                     </div>
                   )}
                 </div>
@@ -219,6 +222,9 @@ export function UploadFlow() {
         <CardBody>
           <p className="text-sm text-ink-muted">
             {result.applied} item{result.applied === 1 ? '' : 's'} applied to inventory.
+            {result.created > 0
+              ? ` ${result.created} new catalog item${result.created === 1 ? '' : 's'} created.`
+              : ''}
             {result.skipped > 0 ? ` ${result.skipped} skipped.` : ''}
           </p>
           <div className="flex gap-3 mt-4">
