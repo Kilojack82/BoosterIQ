@@ -287,20 +287,24 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      // Buy = how much to refill back to the base stock count. The simple
-      // importer stores that count as par_level so the dashboard always has
-      // a "refill target" without needing extra columns.
-      const base = agg.item.par_level ?? agg.item.current_stock + agg.sold;
-      const buy = Math.max(0, base - agg.item.current_stock);
+      // Drive the shopping list directly from "base count" (par_level set
+      // by the master inventory upload) and "sold this game" (aggregated
+      // from the latest Square import). Order of upload doesn't matter —
+      // re-uploading master after sales no longer wipes the buy list.
+      // Buy = what was sold (refill what left the shelf).
+      // Left = base - sold (clamped at 0 if oversold).
+      const base = agg.item.par_level ?? agg.sold;
+      const buy = agg.sold;
+      const left = Math.max(0, base - agg.sold);
       let urgency: Urgency = 'filled';
-      if (agg.item.current_stock <= 0) urgency = 'critical';
-      else if (agg.item.current_stock < base) urgency = 'low';
+      if (left <= 0) urgency = 'critical';
+      else if (left < base) urgency = 'low';
       shoppingList.push({
         id: agg.item.id,
         code: agg.item.code,
         name: agg.item.name,
         category: agg.item.category,
-        current_stock: agg.item.current_stock,
+        current_stock: left,
         par_level: agg.item.par_level,
         sold_qty: agg.sold,
         buy_qty: buy,

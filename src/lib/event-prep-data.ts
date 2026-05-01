@@ -164,17 +164,17 @@ export async function getEventPrep(eventId: string): Promise<EventPrep | null> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      // Buy = refill target minus what's on hand. The base stock count
-      // from the master inventory is stored on par_level; if it isn't
-      // present, fall back to last-game sales as the implied target.
-      const base = agg.item.par_level ?? agg.item.current_stock + agg.sold;
-      const buy = Math.max(0, base - agg.item.current_stock);
+      // Driven directly from base count + last-game sold so upload order
+      // doesn't matter. par_level holds the base set on master upload.
+      const base = agg.item.par_level ?? agg.sold;
+      const buy = agg.sold;
+      const left = Math.max(0, base - agg.sold);
       rows.push({
         id: agg.item.id,
         code: agg.item.code,
         name: agg.item.name,
         category: agg.item.category,
-        current_stock: agg.item.current_stock,
+        current_stock: left,
         last_game_sold: agg.sold,
         recommended_buy: buy,
         receipts_since_last_game: receiptDeltaByItem.get(agg.item.id) ?? 0,
