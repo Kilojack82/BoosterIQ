@@ -61,10 +61,12 @@ export type ShoppingListRow = {
   id: string;
   code: string;
   name: string;
+  category: string | null;
   current_stock: number;
-  par_level: number;
+  par_level: number | null;
   buy_qty: number;
   urgency: Urgency;
+  reason: 'par' | 'depleted';
 };
 
 export type EventSummary = {
@@ -122,40 +124,65 @@ export async function getDashboardData(): Promise<DashboardData> {
         .eq('club_id', club.id),
     ]);
 
-  // Shopping list: items with par_level set, where current_stock is below
-  // the low_par_buffer threshold. Concessions only — merch isn't a reorder
-  // concern in V1.
+  // Shopping list — concessions only. Two reasons an item lands here:
+  //   1) par_level set AND current_stock falls below buffer (proactive)
+  //   2) current_stock <= 0 (sold out — definitely need more next game)
+  // The second case catches drinks/snacks with no par configured yet.
   const { data: catalog } = await supabase
     .from('catalog_items')
-    .select('id, code, name, current_stock, par_level')
+    .select('id, code, name, category, current_stock, par_level')
     .eq('club_id', club.id)
     .eq('is_merch', false)
-    .not('par_level', 'is', null)
     .order('name');
 
   const shoppingList: ShoppingListRow[] = [];
   for (const item of catalog ?? []) {
-    if (item.par_level == null) continue;
-    const urgency = shoppingListUrgency({
-      current_stock: item.current_stock,
-      par_level: item.par_level,
-      critical_buffer: Number(settings.critical_par_buffer),
-      low_buffer: Number(settings.low_par_buffer),
-    });
-    if (urgency == null) continue;
-    shoppingList.push({
-      id: item.id,
-      code: item.code,
-      name: item.name,
-      current_stock: item.current_stock,
-      par_level: item.par_level,
-      buy_qty: Math.max(0, item.par_level * 2 - item.current_stock),
-      urgency,
-    });
+    // Path 1: par-tracked + below buffer
+    if (item.par_level != null) {
+      const urgency = shoppingListUrgency({
+        current_stock: item.current_stock,
+        par_level: item.par_level,
+        critical_buffer: Number(settings.critical_par_buffer),
+        low_buffer: Number(settings.low_par_buffer),
+      });
+      if (urgency != null) {
+        shoppingList.push({
+          id: item.id,
+          code: item.code,
+          name: item.name,
+          category: item.category,
+          current_stock: item.current_stock,
+          par_level: item.par_level,
+          buy_qty: Math.max(0, item.par_level * 2 - item.current_stock),
+          urgency,
+          reason: 'par',
+        });
+        continue;
+      }
+    }
+    // Path 2: sold out without par tracking — recommend last game's sales × 1.5
+    if (item.current_stock <= 0) {
+      const sold = Math.max(1, Math.abs(item.current_stock));
+      shoppingList.push({
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        category: item.category,
+        current_stock: item.current_stock,
+        par_level: item.par_level,
+        buy_qty: Math.ceil(sold * 1.5),
+        urgency: 'critical',
+        reason: 'depleted',
+      });
+    }
   }
   shoppingList.sort((a, b) => {
     const order = { critical: 0, low: 1, filled: 2 };
-    return order[a.urgency] - order[b.urgency] || a.name.localeCompare(b.name);
+    return (
+      order[a.urgency] - order[b.urgency] ||
+      Math.abs(b.current_stock) - Math.abs(a.current_stock) ||
+      a.name.localeCompare(b.name)
+    );
   });
 
   // Events — latest past + next upcoming

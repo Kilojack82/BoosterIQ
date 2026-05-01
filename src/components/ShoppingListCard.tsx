@@ -33,7 +33,9 @@ export function ShoppingListCard({ rows }: { rows: ShoppingListRow[] }) {
               <div className="min-w-0">
                 <div className={`font-semibold truncate ${c.text}`}>{row.name}</div>
                 <div className="text-xs text-ink-muted">
-                  {row.current_stock} left · par {row.par_level}
+                  {row.reason === 'par'
+                    ? `${row.current_stock} left · par ${row.par_level}`
+                    : `Sold ${Math.abs(row.current_stock)} · no par tracked`}
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
