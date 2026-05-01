@@ -32,6 +32,14 @@ export type LatestSales = {
   total_gross_sales_cents: number;
   date_range: { start: string | null; end: string | null };
   processed_at: string | null;
+  payment_breakdown: {
+    cash_cents: number | null;
+    card_cents: number | null;
+    cashapp_cents: number | null;
+    fees_cents: number | null;
+    net_total_cents: number | null;
+  } | null;
+  source: 'summary' | 'items';
 };
 
 export type VolunteerRoleSummary = {
@@ -216,13 +224,33 @@ export async function getDashboardData(): Promise<DashboardData> {
   let latestSales: LatestSales | null = null;
   if (latestImport?.parsed_data_json) {
     const j = latestImport.parsed_data_json as Record<string, unknown>;
+    const summary = j.summary as Record<string, number | null> | null;
+    // Prefer the Sales Summary PDF's authoritative total when present —
+    // it reflects what Square's dashboard reports, and is more reliable
+    // than the items aggregation (which can drop rows during PDF parse).
+    const useSummary =
+      summary != null && (summary.net_sales_cents ?? null) != null;
     latestSales = {
       total_qty: Number(j.total_qty ?? 0),
-      total_net_sales_cents: Number(j.total_net_sales_cents ?? 0),
-      total_gross_sales_cents: Number(j.total_gross_sales_cents ?? 0),
+      total_net_sales_cents: useSummary
+        ? Number(summary!.net_sales_cents)
+        : Number(j.total_net_sales_cents ?? 0),
+      total_gross_sales_cents: useSummary
+        ? Number(summary!.gross_sales_cents ?? summary!.net_sales_cents)
+        : Number(j.total_gross_sales_cents ?? 0),
       date_range:
         (j.date_range as LatestSales['date_range']) ?? { start: null, end: null },
       processed_at: latestImport.processed_at as string | null,
+      payment_breakdown: summary
+        ? {
+            cash_cents: summary.cash_cents ?? null,
+            card_cents: summary.card_cents ?? null,
+            cashapp_cents: summary.cashapp_cents ?? null,
+            fees_cents: summary.fees_cents ?? null,
+            net_total_cents: summary.net_total_cents ?? null,
+          }
+        : null,
+      source: useSummary ? 'summary' : 'items',
     };
   }
 
