@@ -20,7 +20,7 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
                   ? 'text-critical'
                   : kpi.tone === 'gold'
                     ? 'text-gold'
-                    : 'text-royal'
+                    : 'text-skyblue'
               }`}
             >
               {kpi.value}
