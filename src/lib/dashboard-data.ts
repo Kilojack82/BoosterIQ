@@ -23,6 +23,15 @@ export type DashboardData = {
   latestEvent: EventSummary | null;
   upcomingEvent: EventSummary | null;
   volunteerCoverage: VolunteerCoverage | null;
+  latestSales: LatestSales | null;
+};
+
+export type LatestSales = {
+  total_qty: number;
+  total_net_sales_cents: number;
+  total_gross_sales_cents: number;
+  date_range: { start: string | null; end: string | null };
+  processed_at: string | null;
 };
 
 export type VolunteerRoleSummary = {
@@ -196,6 +205,27 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   }
 
+  // Latest Square import — drives the Gross sales KPI
+  const { data: latestImport } = await supabase
+    .from('square_imports')
+    .select('parsed_data_json, processed_at')
+    .eq('club_id', club.id)
+    .order('processed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let latestSales: LatestSales | null = null;
+  if (latestImport?.parsed_data_json) {
+    const j = latestImport.parsed_data_json as Record<string, unknown>;
+    latestSales = {
+      total_qty: Number(j.total_qty ?? 0),
+      total_net_sales_cents: Number(j.total_net_sales_cents ?? 0),
+      total_gross_sales_cents: Number(j.total_gross_sales_cents ?? 0),
+      date_range:
+        (j.date_range as LatestSales['date_range']) ?? { start: null, end: null },
+      processed_at: latestImport.processed_at as string | null,
+    };
+  }
+
   return {
     club,
     settings: {
@@ -214,5 +244,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     latestEvent: latestRes.data ?? null,
     upcomingEvent: upcomingRes.data ?? null,
     volunteerCoverage,
+    latestSales,
   };
 }

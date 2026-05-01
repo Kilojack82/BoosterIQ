@@ -16,7 +16,12 @@ const ACTIONS: Action[] = [
     iconColor: 'royal',
     href: '/receipts/upload',
   },
-  { label: 'Square report', sublabel: 'After each game', iconColor: 'royal', disabled: true },
+  {
+    label: 'Square report',
+    sublabel: 'After each game',
+    iconColor: 'royal',
+    href: '/square/upload',
+  },
   { label: 'Master sheet', sublabel: 'Google Drive', iconColor: 'gold', disabled: true },
   {
     label: 'Add event',

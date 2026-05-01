@@ -15,7 +15,7 @@ Per the build sequence in [BUILD_BRIEF.md](./BUILD_BRIEF.md):
 | 3 | Master sheet ingestion → catalog_items | ✅ Complete | yes — 131 concessions + 235 merch + 408 menu items, run via `pnpm seed:master-sheet` |
 | 6 | Dashboard read-only with seeded data | ✅ Complete | yes — http://localhost:3000 renders correctly |
 | 4 | Receipt upload + Claude vision parsing | 🟡 Code complete, **untested live** | NO — blocked on Anthropic credit balance |
-| 5 | Square CSV upload + sales depletion math | ⏭️ Not started | — |
+| 5 | Square CSV upload + sales depletion math | ✅ Code complete | parser has 6 unit tests; live-tested needs a real Square Item Sales CSV |
 | 7 | SignUp Genius scraper + manual paste fallback | ✅ Code complete | scraper untested live (need a real URL); paste parser has 6 passing unit tests |
 | 8 | Volunteer panel | ✅ Code complete | dashboard now reads volunteer_slots when present; UI tested empty-state |
 | 9 | Conversational onboarding wizard | ⏭️ Not started | — |

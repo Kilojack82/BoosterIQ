@@ -14,11 +14,11 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   const data = await getDashboardData();
 
-  // KPI calculations — V1 reads what we have. Gross sales and "this week"
-  // figures will become real once square_imports has data (build step 5)
-  // and receipts (build step 4).
-  const grossSalesCents = 0;
-  const grossTransactions = 0;
+  // KPI calculations — read what we have. Step 5 wires gross sales from
+  // the latest Square import; step 4 wires receipts; receipts-this-week
+  // can be added later as a follow-up.
+  const grossSalesCents = data.latestSales?.total_net_sales_cents ?? 0;
+  const grossTransactions = data.latestSales?.total_qty ?? 0;
   const reorderItems = data.shoppingList.length;
   const receiptsThisWeekCents = 0;
 
