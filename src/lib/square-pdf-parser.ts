@@ -1,20 +1,23 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ParsedSquareRow, SquareParseResult } from './square-csv-parser';
 
-const ITEMS_SYSTEM_PROMPT = `You are parsing a Square "Item Sales" or "Items" PDF report exported by a Texas booster club. Each row is one line item from one transaction. Columns include: Date, Time, Time Zone, Category, Item, Qty, Price Point Name (variation), SKU, Modifiers Applied, Gross Sales, Discounts, Net Sales, Tax, Transaction ID, Payment ID, Device Name, Notes.
+const ITEMS_SYSTEM_PROMPT = `You are parsing a Square Item Sales PDF for a Texas booster club concession stand. The PDF has one transaction line item per row, with columns: Date, Time, Time Zone, Category, Item, Qty, Price Point Name (variation), SKU, Modifiers Applied, Gross Sales, Discounts, Net Sales, Tax, Transaction ID, Payment ID, Device Name, Notes.
 
-Your job:
-1. Extract every line item across every page.
-2. Aggregate rows that share the same SKU + Item + Price Point Name (variation) by summing Qty, Gross Sales, and Net Sales.
-3. Convert dollar amounts to integer cents ($3.00 -> 300; $1.50 -> 150).
-4. Capture the date range across all rows.
-5. Return total_qty (sum of all Qty values, before aggregation) and total_net_sales_cents (sum of all Net Sales, before aggregation).
+ACCURACY RULES (these matter — the totals must match Square's own numbers):
+- Each row in the table is ONE sale of an item. Do not invent or duplicate rows.
+- Qty is usually 1.0; sometimes 2.0, 3.0, 4.0.
+- Net Sales is the dollar amount in the Net Sales column.
+- The PDF may have card-brand footer pages listing "MasterCard" / "Visa" / card numbers — IGNORE those entirely.
+- Aggregate to one row per unique (Item, Variation) pair: sum Qty and sum Net Sales (in cents).
+- total_qty = sum of all Qty values across every transaction line, before aggregation.
+- total_net_sales_cents = sum of all Net Sales values across every transaction line.
 
-Always call the submit_items tool with your output. Never include subtotal/tax/total rows from Square's footer.`;
+Always call the submit_items tool exactly once with the structured output. Do not return prose.`;
 
 const ITEMS_TOOL = {
   name: 'submit_items',
-  description: 'Submit aggregated Square item sales data.',
+  description:
+    'Emit aggregated Square item sales data. Always call this tool exactly once with the structured output.',
   input_schema: {
     type: 'object' as const,
     properties: {
@@ -32,18 +35,17 @@ const ITEMS_TOOL = {
       raw_row_count: { type: 'integer' },
       rows: {
         type: 'array',
+        description:
+          'One row per unique item + variation. item is a name like "Cheeseburger". variation is "Regular", a flavor like "Cool Blue" or "Lemon Lime", or a size — null when none. qty is total sold, net is total cents.',
         items: {
           type: 'object',
           properties: {
             item: { type: 'string' },
             variation: { type: ['string', 'null'] },
-            sku: { type: ['string', 'null'] },
-            category: { type: ['string', 'null'] },
             qty: { type: 'number' },
             net_sales_cents: { type: 'integer' },
-            gross_sales_cents: { type: 'integer' },
           },
-          required: ['item', 'qty', 'net_sales_cents', 'gross_sales_cents'],
+          required: ['item', 'qty', 'net_sales_cents'],
         },
       },
     },
@@ -104,14 +106,17 @@ export type ParsedSalesSummary = {
 
 const client = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-export async function parseSquareItemsPdf(pdfBase64: string): Promise<SquareParseResult> {
-  // Haiku 4.5 is plenty for structured table extraction and ~3x faster
-  // than Sonnet, which matters because Netlify caps function timeout at
-  // 26 seconds on free / 30 seconds on Pro. Multi-page items PDFs were
-  // timing out on Sonnet.
+export async function parseSquareItemsPdf(pdfBuffer: Buffer): Promise<SquareParseResult> {
+  // Vision-based PDF document parsing is more accurate on Square's
+  // tabular exports than text-extracted parsing — when text is extracted
+  // by pdf-parse-fork it loses column boundaries, which leads Haiku to
+  // miscount qty/sales totals. Slim per-row schema + temperature 0 keeps
+  // the parse fast and deterministic.
+  const base64 = pdfBuffer.toString('base64');
   const response = await client().messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 8192,
+    max_tokens: 16384,
+    temperature: 0,
     system: ITEMS_SYSTEM_PROMPT,
     tools: [ITEMS_TOOL],
     tool_choice: { type: 'tool', name: 'submit_items' },
@@ -121,9 +126,9 @@ export async function parseSquareItemsPdf(pdfBase64: string): Promise<SquarePars
         content: [
           {
             type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
+            source: { type: 'base64', media_type: 'application/pdf', data: base64 },
           },
-          { type: 'text', text: 'Parse this Square items report.' },
+          { type: 'text', text: 'Parse this Square Item Sales PDF.' },
         ],
       },
     ],
@@ -144,29 +149,48 @@ export async function parseSquareItemsPdf(pdfBase64: string): Promise<SquarePars
     total_gross_sales_cents: number;
     date_range: { start: string | null; end: string | null };
     raw_row_count: number;
-    rows: ParsedSquareRow[];
+    rows: Array<{
+      item: string;
+      variation?: string | null;
+      qty: number;
+      net_sales_cents: number;
+    }>;
   };
 
   if (!Array.isArray(out.rows) || out.rows.length === 0) {
     return { ok: false, reason: 'No rows returned from items PDF parse', raw_row_count: 0 };
   }
 
+  // Slim schema -> fill in nulls for the matcher's expected ParsedSquareRow shape
+  const rows: ParsedSquareRow[] = out.rows.map((r) => ({
+    item: r.item,
+    variation: r.variation ?? null,
+    sku: null,
+    category: null,
+    qty: r.qty,
+    net_sales_cents: r.net_sales_cents,
+    gross_sales_cents: r.net_sales_cents,
+  }));
+
   return {
     ok: true,
-    rows: out.rows.sort((a, b) => b.net_sales_cents - a.net_sales_cents),
+    rows: rows.sort((a, b) => b.net_sales_cents - a.net_sales_cents),
     total_qty: out.total_qty,
     total_net_sales_cents: out.total_net_sales_cents,
-    total_gross_sales_cents: out.total_gross_sales_cents,
+    total_gross_sales_cents: out.total_gross_sales_cents ?? out.total_net_sales_cents,
     date_range: out.date_range,
     raw_row_count: out.raw_row_count,
   };
 }
 
-export async function parseSquareSummaryPdf(pdfBase64: string): Promise<ParsedSalesSummary> {
-  // Sales summary is a tiny one-page table — Haiku is more than enough.
+export async function parseSquareSummaryPdf(
+  pdfBuffer: Buffer,
+): Promise<ParsedSalesSummary> {
+  const base64 = pdfBuffer.toString('base64');
   const response = await client().messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
+    temperature: 0,
     system: SUMMARY_SYSTEM_PROMPT,
     tools: [SUMMARY_TOOL],
     tool_choice: { type: 'tool', name: 'submit_summary' },
@@ -176,9 +200,9 @@ export async function parseSquareSummaryPdf(pdfBase64: string): Promise<ParsedSa
         content: [
           {
             type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
+            source: { type: 'base64', media_type: 'application/pdf', data: base64 },
           },
-          { type: 'text', text: 'Parse this Square sales summary.' },
+          { type: 'text', text: 'Parse this Square Sales Summary.' },
         ],
       },
     ],

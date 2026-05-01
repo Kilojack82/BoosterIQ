@@ -38,8 +38,7 @@ export async function POST(request: Request) {
       parseSource = 'csv';
     } else if (isPdf(itemsFile)) {
       const buf = Buffer.from(await itemsFile.arrayBuffer());
-      const base64 = buf.toString('base64');
-      parsed = await parseSquareItemsPdf(base64);
+      parsed = await parseSquareItemsPdf(buf);
       parseSource = 'pdf';
     } else {
       return NextResponse.json(
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
         );
       }
       const buf = Buffer.from(await summaryFile.arrayBuffer());
-      summary = await parseSquareSummaryPdf(buf.toString('base64'));
+      summary = await parseSquareSummaryPdf(buf);
     }
 
     const supabase = createAdminClient();
