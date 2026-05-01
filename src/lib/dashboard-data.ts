@@ -138,6 +138,18 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const shoppingList: ShoppingListRow[] = [];
   if (latestSalesImport) {
+    // Items with at least one reconcile movement = items the chair has
+    // counted via the Base Stock tab. Only these appear on the shopping
+    // list. Cheeseburger / Hot Dog / Pizza Slice etc. won't be counted in
+    // Base Stock (they're recipe items), so they're excluded automatically.
+    const { data: reconciled } = await supabase
+      .from('stock_movements')
+      .select('catalog_item_id')
+      .eq('source_type', 'reconcile');
+    const baseStockTracked = new Set(
+      (reconciled ?? []).map((r) => r.catalog_item_id as string),
+    );
+
     type MovementRow = {
       catalog_item_id: string;
       delta: number;
@@ -164,6 +176,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     const byCatalog = new Map<string, Agg>();
     for (const m of movements ?? []) {
       if (!m.catalog_items || m.catalog_items.is_merch) continue;
+      // Filter to base-stock-tracked items only.
+      if (!baseStockTracked.has(m.catalog_item_id)) continue;
       const existing = byCatalog.get(m.catalog_item_id) ?? {
         sold: 0,
         item: m.catalog_items,

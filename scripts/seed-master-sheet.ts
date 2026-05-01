@@ -206,6 +206,71 @@ async function main() {
   const { error: menuErr } = await supabase.from('menu_items').insert(menuItems);
   if (menuErr) throw new Error(`menu_items insert: ${menuErr.message}`);
 
+  // --- Base Stock tab → reconcile catalog_items.current_stock -------------
+  // Optional tab. The chair counts physical inventory before each game and
+  // fills this tab. We reset current_stock to the counted value and write a
+  // reconcile stock_movement for the audit trail. Items not in this tab
+  // are NOT considered "actively managed" — the dashboard shopping list
+  // filters to items that have at least one reconcile movement.
+  type BaseStockRow = {
+    'Item ID'?: string;
+    'Counted Quantity'?: number;
+    'Counted At'?: string;
+    Notes?: string;
+  };
+  let baseStockApplied = 0;
+  if (wb.Sheets['Base Stock']) {
+    const baseStockRaw = XLSX.utils.sheet_to_json<BaseStockRow>(
+      requireSheet('Base Stock'),
+    );
+    const codeToId = new Map<string, { id: string; current_stock: number }>();
+    const { data: catalogList } = await supabase
+      .from('catalog_items')
+      .select('id, code, current_stock')
+      .eq('club_id', clubId);
+    for (const c of catalogList ?? []) {
+      if (c.code) codeToId.set(c.code, { id: c.id, current_stock: c.current_stock });
+    }
+
+    for (const row of baseStockRaw) {
+      const code = trim(row['Item ID']);
+      const qty = row['Counted Quantity'];
+      if (!code || qty == null || !Number.isFinite(Number(qty))) continue;
+      const target = codeToId.get(code);
+      if (!target) {
+        console.warn(`Base Stock: code ${code} not found in catalog, skipping`);
+        continue;
+      }
+      const counted = Math.round(Number(qty));
+      const delta = counted - target.current_stock;
+      if (delta === 0) continue;
+
+      const { error: moveErr } = await supabase.from('stock_movements').insert({
+        catalog_item_id: target.id,
+        delta,
+        source_type: 'reconcile',
+        notes: `Base stock count: ${counted}${row.Notes ? ` (${row.Notes})` : ''}`,
+        occurred_at: row['Counted At']
+          ? new Date(row['Counted At']).toISOString()
+          : new Date().toISOString(),
+      });
+      if (moveErr) {
+        console.error(`Base Stock movement failed for ${code}:`, moveErr.message);
+        continue;
+      }
+      const { error: stockErr } = await supabase
+        .from('catalog_items')
+        .update({ current_stock: counted })
+        .eq('id', target.id);
+      if (stockErr) {
+        console.error(`Base Stock update failed for ${code}:`, stockErr.message);
+        continue;
+      }
+      baseStockApplied += 1;
+    }
+    console.log(`Base Stock rows applied: ${baseStockApplied}`);
+  }
+
   // --- Settings tab → club_settings update --------------------------------
   // Settings tab has 2 preamble rows before the "Setting / Value / Notes" header.
   const settingsRaw = XLSX.utils.sheet_to_json<SettingRow>(requireSheet('Settings'), {
@@ -260,6 +325,7 @@ async function main() {
   console.log(`  menu_items:                  ${menuItems.length}`);
   console.log(`  menu_items linked to catalog: ${matched}`);
   console.log(`  club_settings fields updated: ${Object.keys(updates).length}`);
+  console.log(`  base_stock counts applied:   ${baseStockApplied}`);
 }
 
 main().catch((err) => {

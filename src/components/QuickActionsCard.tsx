@@ -56,7 +56,12 @@ export function QuickActionsCard({
       iconColor: 'royal',
       href: '/square/upload',
     },
-    { label: 'Master sheet', sublabel: 'Google Drive', iconColor: 'gold', disabled: true },
+    {
+      label: 'Master inventory',
+      sublabel: 'Upload + base stock',
+      iconColor: 'gold',
+      href: '/inventory',
+    },
     {
       label: 'Add event',
       sublabel: 'Game + roster URL',
