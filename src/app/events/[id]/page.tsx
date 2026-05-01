@@ -4,6 +4,7 @@ import { getEventPrep } from '@/lib/event-prep-data';
 import { Card, CardBody, CardHeader } from '@/components/Card';
 import { formatCents, formatDate } from '@/lib/format';
 import { urgencyClasses, type Urgency } from '@/lib/urgency';
+import { ResetButton } from './ResetButton';
 
 export const metadata = { title: 'Event · BoosterIQ' };
 export const revalidate = 0;
@@ -142,6 +143,18 @@ export default async function EventDetailPage({
             </Card>
           </>
         )}
+
+        <Card>
+          <CardHeader title="Danger zone" />
+          <CardBody>
+            <ResetButton eventId={event.id} eventName={event.name} />
+            <p className="text-xs text-ink-muted mt-2">
+              Use this to clear the Square import and volunteer roster for just this
+              event so you can re-upload corrected docs. The event row, your master
+              inventory, and receipts are not affected.
+            </p>
+          </CardBody>
+        </Card>
       </main>
     </div>
   );
