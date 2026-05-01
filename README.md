@@ -9,6 +9,7 @@ BoosterIQ is an intelligence platform for youth-sports booster clubs. It aggrega
 - [DECISIONS.md](./DECISIONS.md) — running log of architectural decisions and their rationale
 - [DESIGN.md](./DESIGN.md) — color tokens, typography, layout primitives, and the dashboard mockup spec
 - [SETUP.md](./SETUP.md) — local environment and service-account setup checklist
+- [DEPLOY.md](./DEPLOY.md) — Netlify / Vercel deployment guide
 
 ## Status
 

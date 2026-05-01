@@ -1,0 +1,10 @@
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "10"
+
+# Netlify auto-detects Next.js and installs @netlify/plugin-nextjs.
+# No explicit plugin entry needed — keep this file minimal.
