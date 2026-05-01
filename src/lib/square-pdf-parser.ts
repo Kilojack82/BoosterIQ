@@ -105,8 +105,12 @@ export type ParsedSalesSummary = {
 const client = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function parseSquareItemsPdf(pdfBase64: string): Promise<SquareParseResult> {
+  // Haiku 4.5 is plenty for structured table extraction and ~3x faster
+  // than Sonnet, which matters because Netlify caps function timeout at
+  // 26 seconds on free / 30 seconds on Pro. Multi-page items PDFs were
+  // timing out on Sonnet.
   const response = await client().messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 8192,
     system: ITEMS_SYSTEM_PROMPT,
     tools: [ITEMS_TOOL],
@@ -159,8 +163,9 @@ export async function parseSquareItemsPdf(pdfBase64: string): Promise<SquarePars
 }
 
 export async function parseSquareSummaryPdf(pdfBase64: string): Promise<ParsedSalesSummary> {
+  // Sales summary is a tiny one-page table — Haiku is more than enough.
   const response = await client().messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     system: SUMMARY_SYSTEM_PROMPT,
     tools: [SUMMARY_TOOL],

@@ -67,11 +67,21 @@ export function UploadFlow({ events }: { events: EventOption[] }) {
     const fd = new FormData(e.currentTarget);
     try {
       const res = await fetch('/api/square-imports/parse', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'Parse failed');
-      setParsed(json);
+      const text = await res.text();
+      let json: ParseResponse | { error: string };
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.status === 504
+            ? 'Parse timed out. The items PDF may be too large for the platform timeout; try splitting it into a smaller date range.'
+            : `Server returned status ${res.status} (non-JSON). Check Netlify function logs.`,
+        );
+      }
+      if (!res.ok) throw new Error((json as { error: string }).error ?? 'Parse failed');
+      const parsedResp = json as ParseResponse;
       const defaults: Record<number, boolean> = {};
-      json.rows.forEach((r: MatchedRow, i: number) => {
+      parsedResp.rows.forEach((r: MatchedRow, i: number) => {
         defaults[i] = !!r.catalog_match;
       });
       setApplyMap(defaults);
