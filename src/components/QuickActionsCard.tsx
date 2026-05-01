@@ -69,8 +69,8 @@ export function QuickActionsCard({
       href: '/events/new',
     },
     {
-      label: 'Calendar',
-      sublabel: 'All events',
+      label: 'Events',
+      sublabel: 'Past + upcoming games',
       iconColor: 'royal',
       href: '/events',
     },
