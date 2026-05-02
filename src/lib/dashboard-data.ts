@@ -213,16 +213,19 @@ export async function getDashboardData(eventId?: string): Promise<DashboardData>
   let itemsSoldTotalQty = 0;
   let itemsSoldTotalNetCents = 0;
 
-  // Items with at least one reconcile movement = items the chair has
-  // counted via the Base Stock tab. Only these appear on the shopping
-  // list. Cheeseburger / Hot Dog / Pizza Slice etc. won't be counted in
-  // Base Stock (they're recipe items), so they're excluded automatically.
-  const { data: reconciled } = await supabase
-    .from('stock_movements')
-    .select('catalog_item_id')
-    .eq('source_type', 'reconcile');
+  // An item is "base-stock-tracked" if its catalog row has par_level set
+  // (the master inventory upload always writes par_level; receipt-only or
+  // recipe items have par_level=null and stay off the shopping list).
+  // par_level == 0 still counts as tracked — that's the chair saying
+  // "I'm watching this item, I just don't keep a base count for it."
+  const { data: trackedRows } = await supabase
+    .from('catalog_items')
+    .select('id')
+    .eq('club_id', club.id)
+    .eq('is_merch', false)
+    .not('par_level', 'is', null);
   const baseStockTracked = new Set(
-    (reconciled ?? []).map((r) => r.catalog_item_id as string),
+    (trackedRows ?? []).map((r) => r.id as string),
   );
   const shoppingListContext = {
     has_sales_import: !!latestSalesImport,

@@ -257,26 +257,27 @@ export async function importMasterSheet(buffer: Buffer): Promise<ImportResult> {
       }
       const counted = Math.round(Number(qtyRaw));
       const delta = counted - target.current_stock;
-      if (delta === 0) {
-        baseStockApplied += 1;
-        continue;
+      if (delta !== 0) {
+        const { error: moveErr } = await supabase.from('stock_movements').insert({
+          catalog_item_id: target.id,
+          delta,
+          source_type: 'reconcile',
+          notes: `Base stock count: ${counted}${row.Notes ? ` (${row.Notes})` : ''}`,
+          occurred_at: row['Counted At']
+            ? new Date(row['Counted At']).toISOString()
+            : new Date().toISOString(),
+        });
+        if (moveErr) {
+          baseStockSkipped += 1;
+          continue;
+        }
       }
-      const { error: moveErr } = await supabase.from('stock_movements').insert({
-        catalog_item_id: target.id,
-        delta,
-        source_type: 'reconcile',
-        notes: `Base stock count: ${counted}${row.Notes ? ` (${row.Notes})` : ''}`,
-        occurred_at: row['Counted At']
-          ? new Date(row['Counted At']).toISOString()
-          : new Date().toISOString(),
-      });
-      if (moveErr) {
-        baseStockSkipped += 1;
-        continue;
-      }
+      // Always set par_level alongside current_stock — the shopping list
+      // uses par_level (not reconcile movements) to decide which items
+      // are tracked, so we have to write it even when delta is 0.
       await supabase
         .from('catalog_items')
-        .update({ current_stock: counted })
+        .update({ current_stock: counted, par_level: counted })
         .eq('id', target.id);
       baseStockApplied += 1;
     }

@@ -53,9 +53,12 @@ export async function POST() {
       .select('id')
       .eq('club_id', club.id)
       .eq('is_merch', false);
+    // Reset both the live stock cache AND par_level so the shopping list's
+    // "is tracked" filter (par_level IS NOT NULL) treats every concession
+    // item as fresh-untracked until the next master inventory upload.
     const { error: stockErr } = await supabase
       .from('catalog_items')
-      .update({ current_stock: 0 })
+      .update({ current_stock: 0, par_level: null })
       .eq('club_id', club.id)
       .eq('is_merch', false);
     if (stockErr) {
