@@ -83,6 +83,7 @@ export default async function DashboardPage({
         <ShoppingListCard
           rows={data.shoppingList}
           context={data.shoppingListContext}
+          eventId={data.selectedEventId}
         />
 
         <VolunteerCoverageCard

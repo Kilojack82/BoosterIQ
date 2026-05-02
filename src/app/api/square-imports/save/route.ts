@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     // Verify the event_id (if any) still exists. The upload UI might be
     // showing a stale event from before a delete; without this check the
     // insert below trips the square_imports_event_id_fkey constraint.
-    let eventId: string | null = body.event_id;
+    const eventId: string | null = body.event_id;
     if (eventId) {
       const { data: ev } = await supabase
         .from('events')

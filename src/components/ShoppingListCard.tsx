@@ -8,9 +8,11 @@ import type { ShoppingListRow } from '@/lib/dashboard-data';
 export function ShoppingListCard({
   rows,
   context,
+  eventId,
 }: {
   rows: ShoppingListRow[];
   context: { has_sales_import: boolean; has_base_stock: boolean };
+  eventId: string | null;
 }) {
   if (rows.length === 0) {
     let message: React.ReactNode;
@@ -91,7 +93,7 @@ export function ShoppingListCard({
             </div>
           );
         })}
-        <PrintListButton />
+        <PrintListButton eventId={eventId} />
       </CardBody>
     </Card>
   );

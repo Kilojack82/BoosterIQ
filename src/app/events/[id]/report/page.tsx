@@ -27,9 +27,20 @@ export default async function ReportPage({
     minute: '2-digit',
   });
 
+  const summary = data.sales?.summary ?? null;
+  const hasPaymentBreakdown =
+    summary != null &&
+    [
+      summary.cash_cents,
+      summary.card_cents,
+      summary.cashapp_cents,
+      summary.fees_cents,
+      summary.net_total_cents,
+    ].some((v) => v != null);
+
   return (
     <div className="min-h-screen bg-surface text-ink print:bg-white print:text-black">
-      {/* Screen-only top bar — hidden on print */}
+      {/* Screen-only top bar */}
       <div className="border-b border-border-subtle print:hidden">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="text-sm text-ink-muted hover:text-ink">
@@ -39,22 +50,25 @@ export default async function ReportPage({
         </div>
       </div>
 
-      <article className="max-w-3xl mx-auto px-4 py-8 print:py-4 print:px-0 print:max-w-none">
-        {/* Report header */}
-        <header className="border-b-2 border-royal pb-4 mb-6 print:border-black">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <div className="text-[11px] font-semibold tracking-widest uppercase text-gold print:text-black mb-1">
-                BoosterIQ Post-game Report
+      <article className="max-w-3xl mx-auto px-4 py-8 print:py-6 print:px-8 print:max-w-none">
+        {/* Branded report header */}
+        <header className="relative mb-8 print:mb-6 print:break-inside-avoid">
+          <div className="bg-royal print:bg-royal text-white rounded-2xl print:rounded-none px-6 py-6 flex items-center gap-5">
+            <div className="size-16 rounded-full bg-navy ring-2 ring-gold flex items-center justify-center shrink-0 print:bg-navy print:ring-gold">
+              <span className="text-gold font-bold text-lg tracking-tight">LV</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-gold mb-0.5">
+                Booster IQ · Post-game Report
               </div>
-              <h1 className="text-3xl font-bold leading-tight">
+              <h1 className="text-2xl print:text-2xl font-bold leading-tight truncate">
                 {data.event.name}
-                <span className="text-ink-muted font-normal print:text-gray-700">
+                <span className="text-white/75 font-normal">
                   {opponent}
                   {homeAway}
                 </span>
               </h1>
-              <div className="text-sm text-ink-muted mt-1 print:text-gray-700">
+              <div className="text-xs text-white/80 mt-1">
                 {formatDate(data.event.date)}
                 {data.event.attendance_actual
                   ? ` · ${data.event.attendance_actual} attendance`
@@ -62,32 +76,24 @@ export default async function ReportPage({
                 {data.event.weather ? ` · ${data.event.weather}` : ''}
               </div>
             </div>
-            <div className="text-right text-xs text-ink-muted print:text-gray-700 shrink-0">
-              <div>Generated</div>
+            <div className="text-right text-[10px] text-white/70 shrink-0 hidden sm:block">
+              <div className="uppercase tracking-wider">Generated</div>
               <div>{generated}</div>
             </div>
           </div>
         </header>
 
-        {/* At-a-glance — top-line numbers chairs flip to first */}
-        <section className="grid grid-cols-3 gap-3 mt-6 print:mt-4 print:break-inside-avoid">
+        {/* At-a-glance */}
+        <section className="grid grid-cols-3 gap-3 print:break-inside-avoid">
           <Glance
             label="Game day sales"
             value={data.sales ? String(data.sales.total_qty) : '—'}
             sublabel={
-              data.sales ? `${formatCents(data.sales.total_net_sales_cents)} net` : 'No sales uploaded'
+              data.sales
+                ? `${formatCents(data.sales.total_net_sales_cents)} net`
+                : 'No sales uploaded'
             }
             tone="skyblue"
-          />
-          <Glance
-            label="Items needed"
-            value={String(data.inventory.items_below_par.length)}
-            sublabel={
-              data.inventory.items_below_par.length === 0
-                ? 'All at par'
-                : `${data.inventory.items_critical} critical · ${data.inventory.items_low} low`
-            }
-            tone={data.inventory.items_below_par.length > 0 ? 'critical' : 'skyblue'}
           />
           <Glance
             label="Gross sales"
@@ -101,28 +107,128 @@ export default async function ReportPage({
             }
             tone="skyblue"
           />
+          <Glance
+            label="Take-home"
+            value={
+              summary?.net_total_cents != null
+                ? formatCents(summary.net_total_cents)
+                : data.sales
+                  ? formatCents(data.sales.total_net_sales_cents)
+                  : '—'
+            }
+            sublabel={
+              summary?.net_total_cents != null
+                ? 'Net after fees'
+                : 'Net sales'
+            }
+            tone="gold"
+          />
         </section>
 
-        {/* Sales */}
-        <Section title="Sales">
-          {data.sales ? (
-            <div className="grid grid-cols-3 gap-4">
-              <Stat label="Net sales" value={formatCents(data.sales.total_net_sales_cents)} />
-              <Stat
-                label="Gross sales"
-                value={formatCents(data.sales.total_gross_sales_cents)}
-              />
-              <Stat label="Items sold" value={String(data.sales.total_qty)} />
+        {/* Sales summary — payment breakdown */}
+        {hasPaymentBreakdown && summary ? (
+          <Section title="Sales Summary">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              {summary.cash_cents != null ? (
+                <SummaryRow label="Cash" value={summary.cash_cents} />
+              ) : null}
+              {summary.card_cents != null ? (
+                <SummaryRow label="Card" value={summary.card_cents} />
+              ) : null}
+              {summary.cashapp_cents != null ? (
+                <SummaryRow label="Cash App" value={summary.cashapp_cents} />
+              ) : null}
+              {summary.giftcard_cents != null && summary.giftcard_cents !== 0 ? (
+                <SummaryRow label="Gift card" value={summary.giftcard_cents} />
+              ) : null}
+              {summary.other_cents != null && summary.other_cents !== 0 ? (
+                <SummaryRow label="Other" value={summary.other_cents} />
+              ) : null}
+              {summary.fees_cents != null ? (
+                <SummaryRow label="Fees" value={summary.fees_cents} negative />
+              ) : null}
+              {summary.net_total_cents != null ? (
+                <SummaryRow
+                  label="Net total"
+                  value={summary.net_total_cents}
+                  emphasize
+                />
+              ) : null}
+            </div>
+          </Section>
+        ) : null}
+
+        {/* Game Day Sales — per-item breakdown */}
+        <Section title="Game Day Sales">
+          {data.items_sold.length > 0 ? (
+            <div>
+              <div className="grid grid-cols-[1fr_3rem_5rem] gap-x-3 text-[11px] uppercase tracking-wider text-ink-faint print:text-gray-700 font-semibold pb-2 px-3 border-l-[3px] border-transparent">
+                <div>Item</div>
+                <div className="text-right">Qty</div>
+                <div className="text-right">Sales</div>
+              </div>
+              <div className="space-y-1.5">
+                {data.items_sold.map((row, i) => {
+                  const tier = saleTier(i);
+                  return (
+                    <div
+                      key={row.id}
+                      className={`grid grid-cols-[1fr_3rem_5rem] gap-x-3 items-baseline rounded-lg border-l-[3px] px-3 py-2 ${tier.rowBg} ${tier.rowBorder} print:bg-transparent print:border-l-2 print:border-black`}
+                    >
+                      <div className="min-w-0">
+                        <div
+                          className={`font-semibold truncate ${tier.text} print:text-black`}
+                        >
+                          {row.name}
+                        </div>
+                        {row.category ? (
+                          <div className="text-[10px] text-ink-faint print:text-gray-600">
+                            {row.category}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div
+                        className={`text-right tabular-nums font-bold ${tier.text} print:text-black`}
+                      >
+                        {row.sold_qty}
+                      </div>
+                      <div
+                        className={`text-right tabular-nums font-semibold ${tier.text} print:text-black`}
+                      >
+                        {row.net_sales_cents > 0
+                          ? formatCents(row.net_sales_cents)
+                          : '—'}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="grid grid-cols-[1fr_3rem_5rem] gap-x-3 px-3 pt-2 mt-2 border-t-2 border-royal print:border-black border-l-[3px] border-l-transparent">
+                  <div className="text-xs uppercase tracking-wider text-ink-faint print:text-gray-700 font-semibold">
+                    Total
+                  </div>
+                  <div className="text-right tabular-nums font-bold">
+                    {data.sales?.total_qty ?? 0}
+                  </div>
+                  <div className="text-right tabular-nums font-bold">
+                    {formatCents(data.sales?.total_net_sales_cents ?? 0)}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-ink-faint print:text-gray-700 print:hidden">
+                <Legend swatch="bg-skyblue" label="Top 5 sellers" />
+                <Legend swatch="bg-gold" label="Next 5" />
+                <Legend swatch="bg-cream" label="Rest" />
+              </div>
             </div>
           ) : (
             <p className="text-sm text-ink-muted print:text-gray-700">
-              No Square sales uploaded for this event yet.
+              No items recorded from Square for this event.
             </p>
           )}
         </Section>
 
         {/* Volunteers */}
-        <Section title="Volunteer roster">
+        <Section title="Volunteer Roster">
           {data.volunteers.total > 0 ? (
             <>
               <div className="grid grid-cols-3 gap-4 mb-4">
@@ -131,7 +237,7 @@ export default async function ReportPage({
                 <Stat label="Open" value={String(data.volunteers.open)} />
               </div>
               <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase text-ink-muted print:text-gray-700">
+                <thead className="text-left text-[11px] uppercase tracking-wider text-ink-muted print:text-gray-700 border-b border-border-subtle print:border-gray-400">
                   <tr>
                     <th className="pb-2 font-semibold">Role</th>
                     <th className="pb-2 font-semibold">Filled</th>
@@ -142,7 +248,7 @@ export default async function ReportPage({
                   {data.volunteers.by_role.map((r) => (
                     <tr key={r.role}>
                       <td className="py-2 font-semibold">{r.role}</td>
-                      <td className="py-2 whitespace-nowrap">
+                      <td className="py-2 whitespace-nowrap tabular-nums">
                         {r.filled} / {r.total}
                       </td>
                       <td className="py-2 text-ink-muted print:text-gray-700">
@@ -160,13 +266,13 @@ export default async function ReportPage({
           )}
         </Section>
 
-        {/* Spending (receipts) */}
-        <Section title="Supply spending — past 7 days">
+        {/* Receipts */}
+        <Section title="Supply Spending — Past 7 Days">
           {data.receipts.length > 0 ? (
             <>
               <Stat label="Total spent" value={formatCents(data.receipts_total_cents)} />
               <table className="w-full text-sm mt-4">
-                <thead className="text-left text-xs uppercase text-ink-muted print:text-gray-700">
+                <thead className="text-left text-[11px] uppercase tracking-wider text-ink-muted print:text-gray-700 border-b border-border-subtle print:border-gray-400">
                   <tr>
                     <th className="pb-2 font-semibold">Date</th>
                     <th className="pb-2 font-semibold">Vendor</th>
@@ -193,60 +299,35 @@ export default async function ReportPage({
           )}
         </Section>
 
-        {/* Inventory */}
-        <Section title="Inventory needing reorder">
-          {data.inventory.items_below_par.length > 0 ? (
-            <>
-              <div className="text-sm text-ink-muted print:text-gray-700 mb-3">
-                {data.inventory.items_critical} critical ·{' '}
-                {data.inventory.items_low} low
-              </div>
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase text-ink-muted print:text-gray-700">
-                  <tr>
-                    <th className="pb-2 font-semibold">Item</th>
-                    <th className="pb-2 font-semibold text-right">Stock</th>
-                    <th className="pb-2 font-semibold text-right">Par</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-subtle print:divide-gray-300">
-                  {data.inventory.items_below_par.map((i) => (
-                    <tr key={i.code}>
-                      <td className="py-2">
-                        <div>{i.name}</div>
-                        <div className="text-xs text-ink-muted print:text-gray-700">
-                          {i.code}
-                        </div>
-                      </td>
-                      <td className="py-2 text-right tabular-nums">{i.current_stock}</td>
-                      <td className="py-2 text-right tabular-nums">{i.par_level}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          ) : (
-            <p className="text-sm text-ink-muted print:text-gray-700">
-              All par-tracked items are at or above target levels.
-            </p>
-          )}
-        </Section>
-
-        <footer className="mt-12 pt-4 border-t border-border-subtle print:border-gray-400 text-xs text-ink-muted print:text-gray-700 text-center">
-          BoosterIQ V1 · Lago Vista Vikings Booster
+        <footer className="mt-12 pt-4 border-t-2 border-royal print:border-black flex items-center justify-between text-[11px] text-ink-muted print:text-gray-700">
+          <span className="font-semibold tracking-wider uppercase">
+            Booster IQ
+          </span>
+          <span>Lago Vista Vikings Booster Club</span>
+          <span>Generated {generated}</span>
         </footer>
       </article>
     </div>
   );
 }
 
+function saleTier(index: number) {
+  if (index < 5)
+    return { rowBg: 'bg-royal/15', rowBorder: 'border-royal', text: 'text-skyblue' };
+  if (index < 10)
+    return { rowBg: 'bg-gold/15', rowBorder: 'border-gold', text: 'text-gold' };
+  return { rowBg: 'bg-cream/10', rowBorder: 'border-cream', text: 'text-cream' };
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-8 print:mt-6 print:break-inside-avoid">
-      <h2 className="text-lg font-semibold mb-3 pb-2 border-b border-border-subtle print:border-gray-300">
+    <section className="mt-7 print:mt-6 print:break-inside-avoid">
+      <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-gold print:text-black mb-2">
         {title}
       </h2>
-      {children}
+      <div className="border-l-[3px] border-royal pl-4 print:border-black">
+        {children}
+      </div>
     </section>
   );
 }
@@ -254,7 +335,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs text-ink-muted print:text-gray-700">{label}</div>
+      <div className="text-[11px] uppercase tracking-wider text-ink-muted print:text-gray-700">
+        {label}
+      </div>
       <div className="text-2xl font-bold tabular-nums">{value}</div>
     </div>
   );
@@ -278,12 +361,12 @@ function Glance({
         ? 'text-gold'
         : 'text-skyblue';
   return (
-    <div className="border border-border-subtle rounded-xl px-3 py-3 print:border-gray-400">
-      <div className="text-[11px] uppercase tracking-wider text-ink-muted print:text-gray-700">
+    <div className="border border-border-subtle rounded-xl px-3 py-3 print:border-gray-400 print:break-inside-avoid">
+      <div className="text-[10px] uppercase tracking-[0.15em] text-ink-muted print:text-gray-700">
         {label}
       </div>
       <div
-        className={`text-[24px] font-bold leading-tight tabular-nums mt-1 ${valueColor} print:text-black`}
+        className={`text-[22px] font-bold leading-tight tabular-nums mt-1 ${valueColor} print:text-black`}
       >
         {value}
       </div>
@@ -291,5 +374,47 @@ function Glance({
         {sublabel}
       </div>
     </div>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  negative,
+  emphasize,
+}: {
+  label: string;
+  value: number;
+  negative?: boolean;
+  emphasize?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-baseline justify-between border-b border-border-subtle print:border-gray-300 py-1 ${
+        emphasize ? 'border-t border-t-royal mt-1 pt-2 print:border-t-black' : ''
+      }`}
+    >
+      <span
+        className={`text-xs ${emphasize ? 'font-semibold uppercase tracking-wider' : 'text-ink-muted print:text-gray-700'}`}
+      >
+        {label}
+      </span>
+      <span
+        className={`tabular-nums font-semibold ${
+          negative ? 'text-critical print:text-black' : ''
+        } ${emphasize ? 'text-base text-gold print:text-black' : ''}`}
+      >
+        {formatCents(value)}
+      </span>
+    </div>
+  );
+}
+
+function Legend({ swatch, label }: { swatch: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`inline-block size-2 rounded-sm ${swatch}`} />
+      {label}
+    </span>
   );
 }

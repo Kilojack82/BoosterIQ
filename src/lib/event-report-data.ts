@@ -17,7 +17,24 @@ export type EventReportData = {
     total_gross_sales_cents: number;
     date_range: { start: string | null; end: string | null };
     processed_at: string | null;
+    summary: {
+      cash_cents: number | null;
+      card_cents: number | null;
+      cashapp_cents: number | null;
+      other_cents: number | null;
+      giftcard_cents: number | null;
+      fees_cents: number | null;
+      net_total_cents: number | null;
+    } | null;
   } | null;
+  items_sold: Array<{
+    id: string;
+    code: string;
+    name: string;
+    category: string | null;
+    sold_qty: number;
+    net_sales_cents: number;
+  }>;
   volunteers: {
     total: number;
     filled: number;
@@ -57,15 +74,21 @@ export async function getEventReportData(eventId: string): Promise<EventReportDa
   // the most recent import whose date_range covers this event's date.
   const { data: linkedImport } = await supabase
     .from('square_imports')
-    .select('parsed_data_json, processed_at')
+    .select('id, parsed_data_json, processed_at')
     .eq('event_id', eventId)
     .order('processed_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   let sales: EventReportData['sales'] = null;
+  const itemsSold: EventReportData['items_sold'] = [];
   if (linkedImport?.parsed_data_json) {
     const j = linkedImport.parsed_data_json as Record<string, unknown>;
+    const summary = (j.summary as EventReportData['sales'] extends infer T
+      ? T extends { summary: infer S }
+        ? S
+        : null
+      : null) ?? null;
     sales = {
       total_qty: Number(j.total_qty ?? 0),
       total_net_sales_cents: Number(j.total_net_sales_cents ?? 0),
@@ -76,7 +99,77 @@ export async function getEventReportData(eventId: string): Promise<EventReportDa
           end: null,
         },
       processed_at: linkedImport.processed_at as string | null,
+      summary: summary as NonNullable<EventReportData['sales']>['summary'],
     };
+
+    // Per-item breakdown: aggregate sale stock_movements for this import
+    // and join to catalog_items + menu_items prices for revenue estimate.
+    type MovementRow = {
+      catalog_item_id: string;
+      delta: number;
+      catalog_items: {
+        id: string;
+        code: string;
+        name: string;
+        category: string | null;
+        is_merch: boolean;
+      } | null;
+    };
+    const { data: movements } = await supabase
+      .from('stock_movements')
+      .select(
+        'catalog_item_id, delta, catalog_items(id, code, name, category, is_merch)',
+      )
+      .eq('source_type', 'sale')
+      .eq('source_id', linkedImport.id)
+      .returns<MovementRow[]>();
+
+    type Agg = { sold: number; item: NonNullable<MovementRow['catalog_items']> };
+    const byItem = new Map<string, Agg>();
+    for (const m of movements ?? []) {
+      if (!m.catalog_items || m.catalog_items.is_merch) continue;
+      const existing = byItem.get(m.catalog_item_id) ?? {
+        sold: 0,
+        item: m.catalog_items,
+      };
+      existing.sold += Math.abs(m.delta);
+      byItem.set(m.catalog_item_id, existing);
+    }
+
+    const itemIds = Array.from(byItem.keys());
+    const priceByItem = new Map<string, number>();
+    if (itemIds.length > 0) {
+      const { data: menus } = await supabase
+        .from('menu_items')
+        .select('catalog_item_id, price_cents')
+        .in('catalog_item_id', itemIds);
+      for (const mn of menus ?? []) {
+        if (mn.catalog_item_id && mn.price_cents != null) {
+          if (!priceByItem.has(mn.catalog_item_id as string)) {
+            priceByItem.set(mn.catalog_item_id as string, mn.price_cents as number);
+          }
+        }
+      }
+    }
+
+    for (const agg of byItem.values()) {
+      if (agg.sold <= 0) continue;
+      const price = priceByItem.get(agg.item.id) ?? 0;
+      itemsSold.push({
+        id: agg.item.id,
+        code: agg.item.code,
+        name: agg.item.name,
+        category: agg.item.category,
+        sold_qty: agg.sold,
+        net_sales_cents: price * agg.sold,
+      });
+    }
+    itemsSold.sort(
+      (a, b) =>
+        b.sold_qty - a.sold_qty ||
+        b.net_sales_cents - a.net_sales_cents ||
+        a.name.localeCompare(b.name),
+    );
   }
 
   // Volunteers
@@ -185,6 +278,7 @@ export async function getEventReportData(eventId: string): Promise<EventReportDa
       })),
       last_synced_at: lastSync,
     },
+    items_sold: itemsSold,
     receipts: receipts ?? [],
     receipts_total_cents: receiptsTotal,
     inventory: {
