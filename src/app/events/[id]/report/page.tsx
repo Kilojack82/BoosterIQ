@@ -46,7 +46,7 @@ export default async function ReportPage({
           <Link href="/" className="text-sm text-ink-muted hover:text-ink">
             ← Dashboard
           </Link>
-          <PrintButton />
+          <PrintButton eventId={data.event.id} />
         </div>
       </div>
 
