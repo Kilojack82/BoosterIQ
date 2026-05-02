@@ -40,12 +40,33 @@ export async function POST(request: Request) {
     }
     const clubId = club.id as string;
 
+    // Verify the event_id (if any) still exists. The upload UI might be
+    // showing a stale event from before a delete; without this check the
+    // insert below trips the square_imports_event_id_fkey constraint.
+    let eventId: string | null = body.event_id;
+    if (eventId) {
+      const { data: ev } = await supabase
+        .from('events')
+        .select('id')
+        .eq('id', eventId)
+        .maybeSingle();
+      if (!ev) {
+        return NextResponse.json(
+          {
+            error:
+              'The selected event no longer exists. Refresh this page to load the current event list, then try again.',
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     // Insert square_imports row first so stock_movements can reference it
     const { data: imp, error: impErr } = await supabase
       .from('square_imports')
       .insert({
         club_id: clubId,
-        event_id: body.event_id,
+        event_id: eventId,
         csv_url: null,
         parsed_data_json: {
           total_qty: body.total_qty,

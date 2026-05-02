@@ -3,6 +3,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { UploadFlow } from './UploadFlow';
 
 export const metadata = { title: 'Upload Square sales · BoosterIQ' };
+export const revalidate = 0;
 
 export default async function SquareUploadPage() {
   const supabase = createAdminClient();
