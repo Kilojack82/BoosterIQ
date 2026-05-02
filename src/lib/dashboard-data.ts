@@ -340,18 +340,19 @@ export async function getDashboardData(eventId?: string): Promise<DashboardData>
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      // Drive the shopping list directly from "base count" (par_level set
-      // by the master inventory upload) and "sold this game" (aggregated
-      // from the latest Square import). Order of upload doesn't matter —
-      // re-uploading master after sales no longer wipes the buy list.
-      // Buy = what was sold (refill what left the shelf).
-      // Left = base - sold (clamped at 0 if oversold).
-      const base = agg.item.par_level ?? agg.sold;
-      const buy = agg.sold;
-      const left = Math.max(0, base - agg.sold);
+      // Two-mode buy formula driven by the base stock count from the
+      // master inventory upload (stored on par_level):
+      //   par_level > 0  → refill back to base. Left = max(0, par − sold);
+      //                    Buy = par − left  (= min(sold, par)).
+      //   par_level == 0 → no base set for this item, fall back to "buy
+      //                    what sold" (no left/par framing applies).
+      const par = agg.item.par_level ?? 0;
+      const sold = agg.sold;
+      const left = par > 0 ? Math.max(0, par - sold) : 0;
+      const buy = par > 0 ? par - left : sold;
       let urgency: Urgency = 'filled';
       if (left <= 0) urgency = 'critical';
-      else if (left < base) urgency = 'low';
+      else if (left < par) urgency = 'low';
       shoppingList.push({
         id: agg.item.id,
         code: agg.item.code,
@@ -359,7 +360,7 @@ export async function getDashboardData(eventId?: string): Promise<DashboardData>
         category: agg.item.category,
         current_stock: left,
         par_level: agg.item.par_level,
-        sold_qty: agg.sold,
+        sold_qty: sold,
         buy_qty: buy,
         urgency,
       });

@@ -164,11 +164,13 @@ export async function getEventPrep(eventId: string): Promise<EventPrep | null> {
 
     for (const agg of byCatalog.values()) {
       if (agg.sold <= 0) continue;
-      // Driven directly from base count + last-game sold so upload order
-      // doesn't matter. par_level holds the base set on master upload.
-      const base = agg.item.par_level ?? agg.sold;
-      const buy = agg.sold;
-      const left = Math.max(0, base - agg.sold);
+      // Two-mode buy formula (mirrors dashboard-data.ts):
+      //   par_level > 0  → refill back to par.
+      //   par_level == 0 → no base set, buy = sold.
+      const par = agg.item.par_level ?? 0;
+      const sold = agg.sold;
+      const left = par > 0 ? Math.max(0, par - sold) : 0;
+      const buy = par > 0 ? par - left : sold;
       rows.push({
         id: agg.item.id,
         code: agg.item.code,
