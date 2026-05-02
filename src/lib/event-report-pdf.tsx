@@ -317,6 +317,8 @@ export function EventReportPdfDocument({ data }: { data: EventReportData }) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/Chicago',
+    timeZoneName: 'short',
   });
   const summary = data.sales?.summary ?? null;
   const hasPaymentBreakdown =

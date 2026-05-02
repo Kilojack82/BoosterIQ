@@ -25,6 +25,8 @@ export default async function ReportPage({
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/Chicago',
+    timeZoneName: 'short',
   });
 
   const summary = data.sales?.summary ?? null;
