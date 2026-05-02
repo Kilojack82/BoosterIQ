@@ -7,13 +7,19 @@ import { ItemsSoldCard } from '@/components/ItemsSoldCard';
 import { ShoppingListCard } from '@/components/ShoppingListCard';
 import { VolunteerCoverageCard } from '@/components/VolunteerCoverageCard';
 import { QuickActionsCard } from '@/components/QuickActionsCard';
+import { EventSwitcher } from '@/components/EventSwitcher';
 import { Footer } from '@/components/Footer';
 
 // Always fetch fresh — V1 has no caching layer.
 export const revalidate = 0;
 
-export default async function DashboardPage() {
-  const data = await getDashboardData();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ event?: string }>;
+}) {
+  const { event } = await searchParams;
+  const data = await getDashboardData(event);
 
   // KPI calculations — read what we have. Step 5 wires gross sales from
   // the latest Square import; step 4 wires receipts; receipts-this-week
@@ -29,6 +35,11 @@ export default async function DashboardPage() {
         <Header
           clubName={data.club.name}
           syncedLabel={`${data.counts.catalog_concessions} concession items · ${data.counts.catalog_merch} merch items synced`}
+        />
+
+        <EventSwitcher
+          events={data.events}
+          selectedEventId={data.selectedEventId}
         />
 
         <LatestEventCard event={data.latestEvent} />

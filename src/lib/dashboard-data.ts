@@ -33,6 +33,15 @@ export type DashboardData = {
   upcomingEvent: EventSummary | null;
   volunteerCoverage: VolunteerCoverage | null;
   latestSales: LatestSales | null;
+  events: EventOption[];
+  selectedEventId: string | null;
+};
+
+export type EventOption = {
+  id: string;
+  name: string;
+  date: string;
+  has_sales: boolean;
 };
 
 export type LatestSales = {
@@ -98,7 +107,7 @@ export type EventSummary = {
   weather: string | null;
 };
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getDashboardData(eventId?: string): Promise<DashboardData> {
   const supabase = createAdminClient();
 
   // Club + settings (single row each in V1)
@@ -143,17 +152,61 @@ export async function getDashboardData(): Promise<DashboardData> {
         .eq('club_id', club.id),
     ]);
 
-  // Shopping list — sales-driven. Lists every catalog item that sold in
-  // the most recent Square import. Items that sold 0 are excluded by
-  // design. Buy qty = sold × 1.5 (one game's worth + 50% buffer).
-  // Urgency reflects stock-on-hand vs. last game's sales.
-  const { data: latestSalesImport } = await supabase
-    .from('square_imports')
-    .select('id, processed_at')
-    .eq('club_id', club.id)
-    .order('processed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Build the events switcher list. All events ordered by date desc; flag
+  // which ones have a Square import attached. The dashboard defaults to
+  // the most recent event WITH sales when no eventId is in the URL, so the
+  // chair lands on a meaningful view but can flip to any event in the strip.
+  const [allEventsRes, importsForListRes] = await Promise.all([
+    supabase
+      .from('events')
+      .select('id, name, date')
+      .eq('club_id', club.id)
+      .order('date', { ascending: false }),
+    supabase
+      .from('square_imports')
+      .select('event_id, processed_at')
+      .eq('club_id', club.id)
+      .not('event_id', 'is', null)
+      .order('processed_at', { ascending: false }),
+  ]);
+  const eventsWithSales = new Set(
+    (importsForListRes.data ?? []).map((r) => r.event_id as string),
+  );
+  const eventList: EventOption[] = (allEventsRes.data ?? []).map((e) => ({
+    id: e.id as string,
+    name: e.name as string,
+    date: e.date as string,
+    has_sales: eventsWithSales.has(e.id as string),
+  }));
+
+  // Resolve the selected event. Priority: explicit eventId param → most
+  // recent event with sales → null (dashboard renders empty states).
+  let selectedEventId: string | null = eventId ?? null;
+  if (!selectedEventId) {
+    const firstWithSales = eventList.find((e) => e.has_sales);
+    selectedEventId = firstWithSales?.id ?? null;
+  }
+  // Validate the requested eventId against the events list to avoid
+  // querying a stale id from the URL.
+  if (selectedEventId && !eventList.some((e) => e.id === selectedEventId)) {
+    selectedEventId = null;
+  }
+
+  // Square import scoped to the selected event.
+  let latestSalesImport: { id: string; processed_at: string | null } | null = null;
+  if (selectedEventId) {
+    const { data } = await supabase
+      .from('square_imports')
+      .select('id, processed_at')
+      .eq('club_id', club.id)
+      .eq('event_id', selectedEventId)
+      .order('processed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    latestSalesImport = data
+      ? { id: data.id as string, processed_at: data.processed_at as string | null }
+      : null;
+  }
 
   const shoppingList: ShoppingListRow[] = [];
   const itemsSold: ItemsSoldRow[] = [];
@@ -317,17 +370,25 @@ export async function getDashboardData(): Promise<DashboardData> {
     });
   }
 
-  // Events — latest past + next upcoming
+  // The "latest event card" reflects the selected event. If nothing was
+  // selected (no events with sales, no eventId param), fall back to the
+  // most recent past event so the card still has something to show.
   const today = new Date().toISOString().slice(0, 10);
-  const [latestRes, upcomingRes] = await Promise.all([
-    supabase
-      .from('events')
-      .select('id, name, opponent, is_home, date, attendance_actual, weather')
-      .eq('club_id', club.id)
-      .lt('date', today)
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [selectedEventRes, upcomingRes] = await Promise.all([
+    selectedEventId
+      ? supabase
+          .from('events')
+          .select('id, name, opponent, is_home, date, attendance_actual, weather')
+          .eq('id', selectedEventId)
+          .maybeSingle()
+      : supabase
+          .from('events')
+          .select('id, name, opponent, is_home, date, attendance_actual, weather')
+          .eq('club_id', club.id)
+          .lt('date', today)
+          .order('date', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
     supabase
       .from('events')
       .select('id, name, opponent, is_home, date, attendance_actual, weather')
@@ -372,14 +433,22 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   }
 
-  // Latest Square import — drives the Gross sales KPI
-  const { data: latestImport } = await supabase
+  // Square import behind the Gross sales KPI — same scope as Game Day
+  // Sales / Shopping List so all three cards reflect the same event.
+  const importQuery = supabase
     .from('square_imports')
     .select('parsed_data_json, processed_at')
-    .eq('club_id', club.id)
-    .order('processed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq('club_id', club.id);
+  const { data: latestImport } = await (selectedEventId
+    ? importQuery
+        .eq('event_id', selectedEventId)
+        .order('processed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : importQuery
+        .order('processed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle());
   let latestSales: LatestSales | null = null;
   if (latestImport?.parsed_data_json) {
     const j = latestImport.parsed_data_json as Record<string, unknown>;
@@ -434,9 +503,11 @@ export async function getDashboardData(): Promise<DashboardData> {
       total_qty: itemsSoldTotalQty,
       total_net_sales_cents: itemsSoldTotalNetCents,
     },
-    latestEvent: latestRes.data ?? null,
+    latestEvent: selectedEventRes.data ?? null,
     upcomingEvent: upcomingRes.data ?? null,
     volunteerCoverage,
     latestSales,
+    events: eventList,
+    selectedEventId,
   };
 }
