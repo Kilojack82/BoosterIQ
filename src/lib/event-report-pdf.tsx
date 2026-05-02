@@ -192,11 +192,11 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 5,
+    alignItems: 'flex-start',
+    paddingVertical: 6,
     paddingHorizontal: 8,
     borderLeftWidth: 2,
-    marginVertical: 1,
+    marginVertical: 1.5,
     borderRadius: 4,
   },
   itemRowTop: {
@@ -211,27 +211,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f7ed',
     borderLeftColor: '#e0d6a8',
   },
-  itemName: {
+  itemNameCol: {
     flex: 1,
+    paddingRight: 8,
+  },
+  itemName: {
     fontFamily: 'Helvetica-Bold',
     fontSize: 9,
+    lineHeight: 1.2,
   },
   itemCategory: {
     fontSize: 7,
     color: MUTED,
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 1.2,
   },
   itemQty: {
     width: 38,
     textAlign: 'right',
     fontFamily: 'Helvetica-Bold',
     fontSize: 9,
+    lineHeight: 1.2,
   },
   itemSales: {
     width: 60,
     textAlign: 'right',
     fontFamily: 'Helvetica-Bold',
     fontSize: 9,
+    lineHeight: 1.2,
+  },
+  totalsLabel: {
+    flex: 1,
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 8,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingRight: 8,
   },
   totalsRow: {
     flexDirection: 'row',
@@ -435,7 +450,7 @@ export function EventReportPdfDocument({ data }: { data: EventReportData }) {
                     style={[styles.itemRow, tierStyle(i)]}
                     wrap={false}
                   >
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.itemNameCol}>
                       <Text style={styles.itemName}>{row.name}</Text>
                       {row.category ? (
                         <Text style={styles.itemCategory}>{row.category}</Text>
@@ -450,9 +465,7 @@ export function EventReportPdfDocument({ data }: { data: EventReportData }) {
                   </View>
                 ))}
                 <View style={styles.totalsRow}>
-                  <Text style={[styles.itemName, { letterSpacing: 1, textTransform: 'uppercase', fontSize: 8 }]}>
-                    Total
-                  </Text>
+                  <Text style={styles.totalsLabel}>Total</Text>
                   <Text style={styles.itemQty}>{data.sales?.total_qty ?? 0}</Text>
                   <Text style={styles.itemSales}>
                     {formatCents(data.sales?.total_net_sales_cents ?? 0)}
