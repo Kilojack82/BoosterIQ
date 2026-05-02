@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader } from '@/components/Card';
 import { formatCents, formatDate } from '@/lib/format';
 import { urgencyClasses, type Urgency } from '@/lib/urgency';
 import { ResetButton } from './ResetButton';
+import { DeleteButton } from './DeleteButton';
 
 export const metadata = { title: 'Event · BoosterIQ' };
 export const revalidate = 0;
@@ -146,13 +147,21 @@ export default async function EventDetailPage({
 
         <Card>
           <CardHeader title="Danger zone" />
-          <CardBody>
-            <ResetButton eventId={event.id} eventName={event.name} />
-            <p className="text-xs text-ink-muted mt-2">
-              Use this to clear the Square import and volunteer roster for just this
-              event so you can re-upload corrected docs. The event row, your master
-              inventory, and receipts are not affected.
-            </p>
+          <CardBody className="space-y-4">
+            <div>
+              <ResetButton eventId={event.id} eventName={event.name} />
+              <p className="text-xs text-ink-muted mt-2">
+                Reset clears the Square import and volunteer roster for this event so
+                you can re-upload corrected docs. The event row stays.
+              </p>
+            </div>
+            <div className="border-t border-border-subtle pt-4">
+              <DeleteButton eventId={event.id} eventName={event.name} />
+              <p className="text-xs text-ink-muted mt-2">
+                Delete removes the event entirely (and the same data Reset would clear).
+                Master inventory is not affected.
+              </p>
+            </div>
           </CardBody>
         </Card>
       </main>
