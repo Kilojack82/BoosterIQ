@@ -12,9 +12,9 @@ export function Header({ clubName, syncedLabel, contactEmail }: HeaderProps) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[11px] font-semibold tracking-widest uppercase text-gold">
-          BoosterIQ · V1
+          Booster IQ
         </div>
-        <h1 className="font-display text-[28px] uppercase tracking-wide text-white leading-none truncate">
+        <h1 className="font-display text-[40px] uppercase tracking-wide text-white leading-none truncate">
           {clubName}
         </h1>
         <div className="text-xs text-white/75 mt-1">

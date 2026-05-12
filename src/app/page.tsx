@@ -33,7 +33,7 @@ export default async function DashboardPage({
   // News-ticker content — pulls live dashboard signals into a single scrolling
   // broadcast strip. Each item is rendered as one chunk separated by middots.
   const tickerItems = [
-    'BoosterIQ',
+    'Booster IQ',
     data.club.name,
     data.upcomingEvent
       ? `Next game · ${data.upcomingEvent.name}${data.upcomingEvent.opponent ? ` vs ${data.upcomingEvent.opponent}` : ''} · ${formatDate(data.upcomingEvent.date)}`
