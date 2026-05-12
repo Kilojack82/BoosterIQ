@@ -1,5 +1,5 @@
 import { getDashboardData } from '@/lib/dashboard-data';
-import { formatCents } from '@/lib/format';
+import { formatCents, formatDate } from '@/lib/format';
 import { Header } from '@/components/Header';
 import { LatestEventCard } from '@/components/LatestEventCard';
 import { KpiStrip } from '@/components/KpiStrip';
@@ -9,6 +9,7 @@ import { VolunteerCoverageCard } from '@/components/VolunteerCoverageCard';
 import { QuickActionsCard } from '@/components/QuickActionsCard';
 import { EventSwitcher } from '@/components/EventSwitcher';
 import { Footer } from '@/components/Footer';
+import { NewsTicker } from '@/components/NewsTicker';
 
 // Always fetch fresh — V1 has no caching layer.
 export const revalidate = 0;
@@ -29,8 +30,21 @@ export default async function DashboardPage({
   const reorderItems = data.shoppingList.length;
   const receiptsThisWeekCents = 0;
 
+  // News-ticker content — pulls live dashboard signals into a single scrolling
+  // broadcast strip. Each item is rendered as one chunk separated by middots.
+  const tickerItems = [
+    'BoosterIQ',
+    data.club.name,
+    data.upcomingEvent
+      ? `Next game · ${data.upcomingEvent.name}${data.upcomingEvent.opponent ? ` vs ${data.upcomingEvent.opponent}` : ''} · ${formatDate(data.upcomingEvent.date)}`
+      : 'No upcoming events',
+    reorderItems > 0 ? `${reorderItems} reorder${reorderItems === 1 ? '' : 's'} pending` : 'Inventory current',
+    `${data.counts.receipts} receipts logged`,
+  ];
+
   return (
     <div className="min-h-screen bg-surface text-ink">
+      <NewsTicker items={tickerItems} />
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         <Header
           clubName={data.club.name}

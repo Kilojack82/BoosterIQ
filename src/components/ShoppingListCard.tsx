@@ -58,7 +58,7 @@ export function ShoppingListCard({
       );
     }
     return (
-      <Card>
+      <Card tone="warm">
         <CardHeader title="Shopping list" meta="Based on last game's sales" />
         <CardBody>
           <div className="text-ink-muted text-sm">{message}</div>

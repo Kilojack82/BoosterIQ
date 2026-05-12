@@ -12,7 +12,14 @@ Per BUILD_BRIEF.md "Brand and visual design," restated here in token form for im
 | `--brand-royal` | `#1F4D9E` | Primary actions, header band, footer band, body button fill, primary metric value |
 | `--brand-navy` | `#0F2C66` | Logo ring fill, deep accents |
 | `--brand-gold` | `#F5C518` | Highlights, CTAs, "Report ready" pill, gold-icon quick actions, eyebrow text on header band |
-| `--brand-cream` | `#FFF8E1` | Light-mode warm surfaces only (dark mode default in V1) |
+| `--brand-cream` | `#FFF8E1` | Light-mode warm surfaces (light-mode variant). In dark mode, used as the basis for the action-card surface — see Broadcast accents below. |
+
+### Broadcast accents (ESPN refresh — added 2026-05-12)
+Layered on top of the brand palette to give the dashboard a sports-broadcast quality without changing the brand identity.
+| Token | Hex | Usage |
+|---|---|---|
+| `--color-live` | `#E60012` | LIVE indicator badge on the news-ticker bar. **Reserved** — do not introduce as a general accent elsewhere. |
+| `--color-card-warm` | `#2A2410` | Action-card surface. Equivalent to applying `--color-gold` at ~15% opacity over `--color-card`. Used on the **shopping list card** to tonally cue "do something here" versus information-only cards. Pass `<Card tone="warm">` to opt in. |
 
 ### Dark mode neutrals (default)
 | Token | Value | Usage |
@@ -35,18 +42,29 @@ Used on shopping list rows, volunteer role rows, and any inline status pill.
 
 ## Typography
 
-`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`. No custom font load in V1.
+**Body:** `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` (system stack — no load).
+**Display (ESPN refresh, 2026-05-12):** Bebas Neue via `next/font/google`, loaded as `--font-bebas-neue` and exposed as the Tailwind `font-display` utility. Use for headline-energy roles only: header-band title, footer next-event line, monogram. Body text remains system sans.
 
-| Role | Size | Weight | Notes |
-|---|---|---|---|
-| Page title (header band) | 22px | 600 | "Lago Vista Vikings Booster" |
-| Card title | 17px | 600 | "Shopping list — before Thursday", "Volunteer coverage — Thursday's game" |
-| Metric value | 28px | 700 | "$1,847", "3 items" — colored by urgency |
-| Body | 14px | 400 | Item descriptions, slot labels |
-| Subtext | 12px | 400 | "12 left · runway 0.4 games" |
-| Eyebrow / metadata | 11px | 600, uppercase, tracked | "LATEST EVENT · JUST FINISHED", "BOOSTERIQ · V1" |
+| Role | Size | Weight | Family | Notes |
+|---|---|---|---|---|
+| Header-band title | 28px | 400 | `font-display` | Uppercase, tracked. "LAGO VISTA VIKINGS BOOSTER" |
+| Footer next-event | 16px | 400 | `font-display` | Uppercase. "NEXT EVENT · …" |
+| Card title | 17px | 600 | system | Unchanged. Body sans, sentence case. |
+| Metric value | 34px | 800 italic | system + `.broadcast-num` | Scoreboard-energy numerics with negative letter-spacing and tabular figures. Colored by tone. |
+| Body | 14px | 400 | system | Item descriptions, slot labels |
+| Subtext | 12px | 400 | system | "12 left · runway 0.4 games" |
+| Eyebrow / metadata | 11px | 600, uppercase, tracked | system | "LATEST EVENT · JUST FINISHED", "BOOSTERIQ · V1" |
+| Urgency pill | 11px | 600, uppercase, tracked | system | Was 12px rounded; now 11px with `rounded-sm` for jersey-cut feel. |
 
-Range: 11–28px. Stay inside this; resist the urge to introduce more sizes.
+Range: 11–34px. Resist introducing more sizes.
+
+### Utility classes (added 2026-05-12)
+| Class | Effect |
+|---|---|
+| `.broadcast-num` | Italic oblique, weight 800, negative letter-spacing, tabular figures. Apply to scoreboard-style numerics (KPI values, game scores). |
+| `.jersey-stripes` | Diagonal repeating-gradient overlay at 5% white, 135° angle, 16px pitch. Apply to royal-blue bands (header, footer). |
+| `.stadium-glow` | Soft radial gold-tinted vignette from upper edge. Pair with `.jersey-stripes` on the header band. |
+| `.news-ticker-track` | Linear marquee animation, 35s loop. Respects `prefers-reduced-motion`. |
 
 ## Layout primitives
 

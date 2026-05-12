@@ -4,9 +4,17 @@ type CardProps = {
   children: ReactNode;
   className?: string;
   accentLeft?: 'gold' | 'royal' | 'critical' | 'low' | 'filled' | null;
+  /** Surface tone. `warm` swaps to a cream-yellow-tinted dark for action cards
+   *  the user is meant to touch (shopping list, prep flows). */
+  tone?: 'default' | 'warm';
 };
 
-export function Card({ children, className = '', accentLeft = null }: CardProps) {
+export function Card({
+  children,
+  className = '',
+  accentLeft = null,
+  tone = 'default',
+}: CardProps) {
   const accentClass = accentLeft
     ? {
         gold: 'border-l-4 border-l-gold',
@@ -17,9 +25,11 @@ export function Card({ children, className = '', accentLeft = null }: CardProps)
       }[accentLeft]
     : '';
 
+  const toneClass = tone === 'warm' ? 'bg-card-warm' : 'bg-card';
+
   return (
     <div
-      className={`bg-card rounded-xl border border-border-subtle ${accentClass} ${className}`}
+      className={`${toneClass} rounded-xl border border-border-subtle ${accentClass} ${className}`}
     >
       {children}
     </div>

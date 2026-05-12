@@ -13,9 +13,11 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
       {items.map((kpi) => (
         <Card key={kpi.label}>
           <CardBody className="pt-5">
-            <div className="text-xs text-ink-muted mb-2">{kpi.label}</div>
+            <div className="text-[11px] font-semibold tracking-widest uppercase text-ink-faint mb-2">
+              {kpi.label}
+            </div>
             <div
-              className={`text-[28px] font-bold leading-none mb-2 ${
+              className={`broadcast-num text-[34px] leading-none mb-2 ${
                 kpi.tone === 'critical'
                   ? 'text-critical'
                   : kpi.tone === 'gold'

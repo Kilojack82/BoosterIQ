@@ -11,6 +11,7 @@
   /* Dark-mode neutrals (default) */
   --color-surface: #0f0f12;
   --color-card: #1a1a20;
+  --color-card-warm: #2a2410; /* Action-card surface — equivalent to gold #F5C518 at ~15% opacity over --color-card. Used on the shopping list card to signal "do something here." */
   --color-border-subtle: rgba(255, 255, 255, 0.08);
 
   /* Text */
@@ -23,8 +24,73 @@
   --color-low: #f5c518;
   --color-filled: #22c55e;
 
+  /* Broadcast accents */
+  --color-live: #e60012; /* ESPN-red — reserved for LIVE / breaking indicators. Use sparingly. */
+
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-bebas-neue), Impact, 'Helvetica Neue', sans-serif;
+}
+
+/* Broadcast typography — italic oblique numerics for scoreboard energy. */
+.broadcast-num {
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Diagonal jersey-stripe overlay — subtle texture for header / footer bands.
+   Applied as a pseudo-element so it doesn't fight other backgrounds. */
+.jersey-stripes {
+  position: relative;
+  isolation: isolate;
+}
+.jersey-stripes::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 14px,
+    rgba(255, 255, 255, 0.05) 14px,
+    rgba(255, 255, 255, 0.05) 16px
+  );
+  z-index: -1;
+  border-radius: inherit;
+}
+
+/* Stadium-lights vignette — warm radial glow from upper edge. */
+.stadium-glow {
+  background-image: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    rgba(245, 197, 24, 0.18) 0%,
+    transparent 70%
+  );
+}
+
+/* News-ticker marquee — single-line scrolling text. */
+.news-ticker-track {
+  display: inline-block;
+  padding-left: 100%;
+  animation: news-ticker-scroll 35s linear infinite;
+  will-change: transform;
+}
+@keyframes news-ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-ticker-track {
+    animation: none;
+    padding-left: 0;
+  }
 }
 
 html,
